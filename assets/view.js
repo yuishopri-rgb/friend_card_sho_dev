@@ -398,8 +398,7 @@
         wrap.appendChild(combineImg);
 
         // コーデ名テキスト
-        var codeNames = items.map(function(s){ return s.d.code || "（未入力）"; }).join("
-");
+        var codeNames = items.map(function(s){ return s.d.code || "（未入力）"; }).join("\n");
         $("combine-text").textContent = codeNames;
 
         $("combine-overlay").classList.add("open");
