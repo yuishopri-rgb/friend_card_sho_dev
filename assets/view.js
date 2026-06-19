@@ -28,6 +28,7 @@
     '  <div class="header-top">',
     '    <div class="header-title" id="header-title">みんな</div>',
     '    <span class="header-updated" id="header-updated"></span>',
+    '    <button class="header-btn combine-btn" id="combine-btn">結合</button>',
     '    <button class="reload-btn" id="reload-btn" aria-label="再読み込み">',
     '      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>',
     '    </button>',
@@ -42,10 +43,30 @@
     '  <div class="pagination" id="pagination"></div>',
     '</main>',
     '<footer class="footer" id="footer"></footer>',
-    '<div class="overlay" id="overlay"><div class="modal"><button class="modal-close" id="modal-close">✕</button><div class="modal-img-wrap" id="m-img"></div></div></div>'
+    '<div class="combine-bar" id="combine-bar">',
+    '  <div class="combine-bar-label" id="combine-bar-label">0 / 8 枚選択中</div>',
+    '  <button class="combine-cancel-btn" id="combine-cancel-btn">キャンセル</button>',
+    '  <button class="combine-exec-btn" id="combine-exec-btn" disabled>結合する</button>',
+    '</div>',
+    '<div class="overlay" id="overlay"><div class="modal"><button class="modal-close" id="modal-close">✕</button><div class="modal-img-wrap" id="m-img"></div></div></div>',
+    '<div class="overlay" id="combine-overlay">',
+    '  <div class="modal combine-modal">',
+    '    <button class="modal-close" id="combine-modal-close">✕</button>',
+    '    <div class="modal-img-wrap" id="combine-img-wrap"></div>',
+    '    <div class="combine-text-area">',
+    '      <pre id="combine-text"></pre>',
+    '      <button class="combine-copy-btn" id="combine-copy-btn">コピー</button>',
+    '    </div>',
+    '  </div>',
+    '</div>'
   ].join("\n");
 
   var $ = function (id) { return document.getElementById(id); };
+
+  // ---- 結合モード ----
+  var combineMode = false;
+  var combineSelected = []; // {d, url} の配列
+  var MAX_COMBINE = 8;
 
   var HEART_ICO = '<svg width="36" height="36" viewBox="0 0 24 24" fill="#f9b8d4" stroke="none"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>';
   var ALL_ICON  = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>';
@@ -185,7 +206,10 @@
           '<div class="card-chara">' + esc(d.chara || "") + '</div>' +
           '<div class="card-name">'  + esc(d.code  || "") + '</div>' +
         '</div>';
-      card.onclick = function(){ openModal(d); };
+      card.onclick = function(){
+        if (combineMode) { toggleCombineSelect(card, d); return; }
+        openModal(d);
+      };
       frag.appendChild(card);
     });
 
@@ -232,6 +256,159 @@
     $("pagination").innerHTML = "";
   }
 
+  // ---- 結合モード ----
+  function enterCombineMode() {
+    combineMode = true;
+    combineSelected = [];
+    $("combine-bar").classList.add("show");
+    $("combine-btn").classList.add("active");
+    updateCombineBar();
+  }
+
+  function exitCombineMode() {
+    combineMode = false;
+    combineSelected = [];
+    $("combine-bar").classList.remove("show");
+    $("combine-btn").classList.remove("active");
+    // 選択状態を解除
+    document.querySelectorAll(".card.combine-selected").forEach(function(el){
+      el.classList.remove("combine-selected");
+    });
+    updateCombineBar();
+  }
+
+  function toggleCombineSelect(cardEl, d) {
+    var idx = -1; for (var _i = 0; _i < combineSelected.length; _i++) { if (combineSelected[_i].d === d) { idx = _i; break; } }
+    if (idx !== -1) {
+      combineSelected.splice(idx, 1);
+      cardEl.classList.remove("combine-selected");
+    } else {
+      if (combineSelected.length >= MAX_COMBINE) {
+        showToast("最大8枚まで選べます");
+        return;
+      }
+      combineSelected.push({ d: d, el: cardEl });
+      cardEl.classList.add("combine-selected");
+    }
+    updateCombineBar();
+  }
+
+  function showToast(msg) {
+    var t = document.createElement("div");
+    t.className = "toast show";
+    t.textContent = msg;
+    document.body.appendChild(t);
+    setTimeout(function(){ t.remove(); }, 2500);
+  }
+
+  function updateCombineBar() {
+    var n = combineSelected.length;
+    $("combine-bar-label").textContent = n + " / " + MAX_COMBINE + " 枚選択中";
+    $("combine-exec-btn").disabled = n < 2;
+  }
+
+  // グリッドレイアウト計算
+  function getGrid(n) {
+    if (n <= 2) return { cols: 2, rows: 1 };
+    if (n <= 4) return { cols: 2, rows: 2 };
+    if (n <= 6) return { cols: 3, rows: 2 };
+    return { cols: 4, rows: 2 };
+  }
+
+  // Zen Maru GothicをFontFace APIで読み込み
+  function loadZenMaruFont() {
+    if (window._zenMaruLoaded) return Promise.resolve();
+    return new FontFace(
+      "Zen Maru Gothic",
+      "url(https://fonts.gstatic.com/s/zenmarugothic/v14/o-0XIpIxzW5b-RxT-6A8jWAtCp-cQmbNNy7wfg.woff2)"
+    ).load().then(function(f){
+      document.fonts.add(f);
+      window._zenMaruLoaded = true;
+    }).catch(function(){});
+  }
+
+  function execCombine() {
+    if (combineSelected.length < 2) return;
+    var items = combineSelected.slice();
+    var grid = getGrid(items.length);
+    var CARD_W = 1100;
+    var CARD_H = 1800;
+    var fontSize = Math.round(CARD_W / 15);
+
+    loadZenMaruFont().then(function(){
+      // 全画像を読み込み
+      var promises = items.map(function(s){
+        return new Promise(function(resolve){
+          var img = new Image();
+          img.crossOrigin = "anonymous";
+          img.onload = function(){ resolve(img); };
+          img.onerror = function(){ resolve(null); };
+          // フル解像度URL
+          img.src = s.d.url.replace(/\/upload\/[^/]*\//, "/upload/c_limit,w_1100,h_1800,q_auto,f_png/");
+        });
+      });
+
+      Promise.all(promises).then(function(imgs){
+        var canvas = document.createElement("canvas");
+        canvas.width  = CARD_W * grid.cols;
+        canvas.height = CARD_H * grid.rows;
+        var ctx = canvas.getContext("2d");
+
+        // 背景をピンクで塗りつぶし
+        ctx.fillStyle = "#f9b8d4";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // フォント設定
+        ctx.font = "bold " + fontSize + "px 'Zen Maru Gothic', sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "top";
+
+        items.forEach(function(s, i){
+          var col = i % grid.cols;
+          var row = Math.floor(i / grid.cols);
+          var x = col * CARD_W;
+          var y = row * CARD_H;
+          var img = imgs[i];
+          if (img) {
+            ctx.drawImage(img, x, y, CARD_W, CARD_H);
+          }
+          // コーデ名テキスト描画
+          var text = s.d.code || "";
+          if (text) {
+            var tx = x + CARD_W / 2;
+            var ty = y + fontSize * 0.3;
+            // ピンク縁取り
+            ctx.strokeStyle = "#f9b8d4";
+            ctx.lineWidth = fontSize * 0.25;
+            ctx.lineJoin = "round";
+            ctx.strokeText(text, tx, ty);
+            // 白文字
+            ctx.fillStyle = "#ffffff";
+            ctx.fillText(text, tx, ty);
+          }
+        });
+
+        // モーダルに表示
+        var dataUrl = canvas.toDataURL("image/png");
+        var combineImg = document.createElement("img");
+        combineImg.src = dataUrl;
+        combineImg.style.cssText = "width:100%;height:auto;display:block;border-radius:8px;";
+        var wrap = $("combine-img-wrap");
+        wrap.innerHTML = "";
+        wrap.appendChild(combineImg);
+
+        // コーデ名テキスト
+        var codeNames = items.map(function(s){ return s.d.code || "（未入力）"; }).join("
+");
+        $("combine-text").textContent = codeNames;
+
+        $("combine-overlay").classList.add("open");
+        document.body.style.overflow = "hidden";
+        exitCombineMode();
+      });
+    });
+  }
+
   // ---- モーダル ----
   function openModal(d) {
     var iw = $("m-img");
@@ -246,6 +423,36 @@
   $("overlay").onclick = function(e){ if (e.target === $("overlay")) closeModal(); };
   $("search").addEventListener("input", function(e){ searchQ = e.target.value; currentPage = 1; render(); });
   $("reload-btn").onclick = function(){ try { localStorage.removeItem(CACHE_KEY); } catch(e){} fetchData(true); };
+  $("combine-btn").onclick = function(){ combineMode ? exitCombineMode() : enterCombineMode(); };
+  $("combine-cancel-btn").onclick = exitCombineMode;
+  $("combine-exec-btn").onclick = execCombine;
+  $("combine-modal-close").onclick = function(){
+    $("combine-overlay").classList.remove("open");
+    document.body.style.overflow = "";
+  };
+  $("combine-overlay").onclick = function(e){
+    if (e.target === $("combine-overlay")) {
+      $("combine-overlay").classList.remove("open");
+      document.body.style.overflow = "";
+    }
+  };
+  $("combine-copy-btn").onclick = function(){
+    var text = $("combine-text").textContent;
+    navigator.clipboard.writeText(text).then(function(){
+      $("combine-copy-btn").textContent = "コピーしました！";
+      setTimeout(function(){ $("combine-copy-btn").textContent = "コピー"; }, 2000);
+    }).catch(function(){
+      // fallback
+      var ta = document.createElement("textarea");
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      ta.remove();
+      $("combine-copy-btn").textContent = "コピーしました！";
+      setTimeout(function(){ $("combine-copy-btn").textContent = "コピー"; }, 2000);
+    });
+  };
 
   // Service Worker
   if ("serviceWorker" in navigator) {
