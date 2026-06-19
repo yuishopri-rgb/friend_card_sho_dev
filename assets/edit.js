@@ -1034,14 +1034,37 @@
           }
           var text = String(card.codeName || "");
           if (text) {
+            // 下から20%を白で塗りつぶし
+            var whiteH = Math.round(CARD_H * 0.20);
+            var whiteY = y + CARD_H - whiteH;
+            ctx.fillStyle = "rgba(255,255,255,0.92)";
+            ctx.fillRect(x, whiteY, CARD_W, whiteH);
+
+            // 15文字ごとに改行
+            var lines = [];
+            for (var ci = 0; ci < text.length; ci += 15) {
+              lines.push(text.substring(ci, ci + 15));
+            }
+
+            ctx.font = "bold " + fontSize + "px 'Zen Maru Gothic', sans-serif";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            var lineH = fontSize * 1.4;
+            var totalTextH = lineH * lines.length;
+            var startY = whiteY + (whiteH - totalTextH) / 2 + lineH / 2;
             var tx = x + CARD_W / 2;
-            var ty = y + fontSize * 0.3;
-            ctx.strokeStyle = "#f9b8d4";
-            ctx.lineWidth = fontSize * 0.25;
-            ctx.lineJoin = "round";
-            ctx.strokeText(text, tx, ty);
-            ctx.fillStyle = "#ffffff";
-            ctx.fillText(text, tx, ty);
+
+            lines.forEach(function(line, li){
+              var ty = startY + li * lineH;
+              // 縁取り（濃いピンク）
+              ctx.strokeStyle = "#e8389e";
+              ctx.lineWidth = fontSize * 0.2;
+              ctx.lineJoin = "round";
+              ctx.strokeText(line, tx, ty);
+              // 白文字
+              ctx.fillStyle = "#ffffff";
+              ctx.fillText(line, tx, ty);
+            });
           }
         });
 
@@ -1049,7 +1072,7 @@
 
         var combineImg = document.createElement("img");
         combineImg.src = dataUrl;
-        combineImg.style.cssText = "width:100%;height:auto;display:block;border-radius:8px;";
+        combineImg.style.cssText = "max-width:100%;max-height:50vh;object-fit:contain;display:block;border-radius:8px;margin:0 auto;";
         var wrap = $("combine-img-wrap");
         wrap.innerHTML = "";
         wrap.appendChild(combineImg);
@@ -1111,7 +1134,7 @@
         item.addEventListener("click", function(){
           var img = document.createElement("img");
           img.src = h.image;
-          img.style.cssText = "width:100%;height:auto;display:block;border-radius:8px;";
+          img.style.cssText = "max-width:100%;max-height:50vh;object-fit:contain;display:block;border-radius:8px;margin:0 auto;";
           $("combine-img-wrap").innerHTML = "";
           $("combine-img-wrap").appendChild(img);
           $("combine-text").textContent = h.text;
