@@ -42,6 +42,10 @@
   var selectedIds = {};
   var selectedCount = 0;
   var searchQ = "";
+  var combineMode = false;
+  var combineSelected = [];
+  var MAX_COMBINE = 8;
+  var HISTORY_KEY = "freca_combine_history_" + BOOT.folder;
   var filterPending = false;
   var PAGE_SIZE_EDIT = 20;
   var pendingPage = 1;
@@ -68,6 +72,8 @@
     '    <div class="header-top">',
     '      <div class="header-title" id="header-title"></div>',
     '      <a class="header-btn" id="view-page-btn" href="./view.html" target="_blank">閲覧ページ</a>',
+    '      <button class="header-btn" id="combine-mode-btn">結合</button>',
+    '      <button class="header-btn" id="history-btn">投稿用画像</button>',
     '      <button class="header-btn" id="delete-mode-btn">削除</button>',
     '      <button class="header-btn" id="settings-btn" aria-label="設定" style="width:32px;height:32px;padding:0;display:flex;align-items:center;justify-content:center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>',
     '    </div>',
@@ -105,6 +111,28 @@
     '  </div>',
     '  <div class="empty-state" id="empty-state" style="display:none"><span class="ico"></span>上の画像ボタンから<br>フレカ写真を選んでね</div>',
     '  <div class="loading-sheet" id="loading-sheet"><span class="spin" style="display:inline-block;border:2px solid #f9a8c9;border-top-color:transparent;border-radius:50%;width:18px;height:18px;animation:spin 0.8s linear infinite"></span> 既存データを読み込み中…</div>',
+    '</div>',
+    '<div class="combine-bar" id="combine-bar">',
+    '  <div class="combine-bar-label" id="combine-bar-label">0 / 8 枚選択中</div>',
+    '  <button class="combine-cancel-btn" id="combine-cancel-btn">キャンセル</button>',
+    '  <button class="combine-exec-btn" id="combine-exec-btn" disabled>結合する</button>',
+    '</div>',
+    '<div class="overlay" id="combine-overlay">',
+    '  <div class="modal combine-modal">',
+    '    <button class="modal-close" id="combine-modal-close">✕</button>',
+    '    <div class="combine-img-wrap" id="combine-img-wrap"></div>',
+    '    <div class="combine-text-area">',
+    '      <pre id="combine-text"></pre>',
+    '      <button class="combine-copy-btn" id="combine-copy-btn">コピー</button>',
+    '    </div>',
+    '  </div>',
+    '</div>',
+    '<div class="overlay" id="history-overlay">',
+    '  <div class="modal combine-modal">',
+    '    <button class="modal-close" id="history-close">✕</button>',
+    '    <div class="history-title">投稿用画像</div>',
+    '    <div class="history-list" id="history-list"></div>',
+    '  </div>',
     '</div>',
     '<div class="toast" id="toast"></div>',
     '<div class="settings-overlay" id="settings-overlay"></div>',
@@ -282,6 +310,36 @@
     $("delete-exec-btn").addEventListener("click", execDelete);
     bindImageUpload("input-icon", "btn-icon", "preview-icon", "status-icon", "icon");
     bindImageUpload("input-ogp",  "btn-ogp",  "preview-ogp",  "status-ogp",  "ogp");
+    $("combine-mode-btn").addEventListener("click", function(){
+      combineMode ? exitCombineMode() : enterCombineMode();
+    });
+    $("combine-cancel-btn").addEventListener("click", exitCombineMode);
+    $("combine-exec-btn").addEventListener("click", execCombine);
+    $("combine-modal-close").addEventListener("click", closeCombineModal);
+    $("combine-overlay").addEventListener("click", function(e){
+      if (e.target === $("combine-overlay")) closeCombineModal();
+    });
+    $("combine-copy-btn").addEventListener("click", function(){
+      var text = $("combine-text").textContent;
+      navigator.clipboard.writeText(text).then(function(){
+        $("combine-copy-btn").textContent = "\u2713 コピーしました";
+        setTimeout(function(){ $("combine-copy-btn").textContent = "コピー"; }, 2000);
+      }).catch(function(){
+        var ta = document.createElement("textarea");
+        ta.value = text; document.body.appendChild(ta); ta.select();
+        document.execCommand("copy"); ta.remove();
+        $("combine-copy-btn").textContent = "\u2713 コピーしました";
+        setTimeout(function(){ $("combine-copy-btn").textContent = "コピー"; }, 2000);
+      });
+    });
+    $("history-btn").addEventListener("click", openHistory);
+    $("history-close").addEventListener("click", function(){
+      $("history-overlay").classList.remove("open");
+      document.body.style.overflow = "";
+    });
+    $("history-overlay").addEventListener("click", function(e){
+      if (e.target === $("history-overlay")) { $("history-overlay").classList.remove("open"); document.body.style.overflow = ""; }
+    });
     $("edit-search").addEventListener("input", function(e){
       searchQ = e.target.value;
       pendingPage = 1; donePage = 1;
@@ -611,6 +669,7 @@
     ["pointerup","pointermove","pointercancel","pointerleave"].forEach(function(ev){ wrap.addEventListener(ev, function(){ clearTimeout(pressTimer); }); });
     wrap.addEventListener("click", function(e){
       if (deleteMode) { e.preventDefault(); toggleSelect(card); }
+      else if (combineMode) { e.preventDefault(); toggleCombineSelect(card.id); }
     });
 
     updateCardBadge(card); updateCardStyle(card);
@@ -853,6 +912,220 @@
         showToast("削除に失敗しました");
       });
   }
+
+  // ================= 結合モード =================
+  function enterCombineMode() {
+    if (deleteMode) return;
+    combineMode = true;
+    combineSelected = [];
+    $("combine-bar").classList.add("show");
+    $("combine-mode-btn").classList.add("active");
+    $("delete-mode-btn").style.display = "none";
+    $("upload-zone").style.display = "none";
+    updateCombineBar();
+  }
+
+  function exitCombineMode() {
+    combineMode = false;
+    combineSelected = [];
+    $("combine-bar").classList.remove("show");
+    $("combine-mode-btn").classList.remove("active");
+    $("delete-mode-btn").style.display = "";
+    $("upload-zone").style.display = "";
+    document.querySelectorAll(".card.combine-selected").forEach(function(el){
+      el.classList.remove("combine-selected");
+    });
+  }
+
+  function toggleCombineSelect(cardId) {
+    var card = cardMap[cardId];
+    if (!card || !card.url) return;
+    var el = $("card-" + cardId);
+    var idx = -1;
+    for (var i = 0; i < combineSelected.length; i++) {
+      if (combineSelected[i].id === cardId) { idx = i; break; }
+    }
+    if (idx !== -1) {
+      combineSelected.splice(idx, 1);
+      if (el) el.classList.remove("combine-selected");
+    } else {
+      if (combineSelected.length >= MAX_COMBINE) {
+        showToast("最大" + MAX_COMBINE + "枚まで選べます");
+        return;
+      }
+      combineSelected.push(card);
+      if (el) el.classList.add("combine-selected");
+    }
+    updateCombineBar();
+  }
+
+  function updateCombineBar() {
+    var n = combineSelected.length;
+    $("combine-bar-label").textContent = n + " / " + MAX_COMBINE + " 枚選択中";
+    $("combine-exec-btn").disabled = n < 2;
+  }
+
+  function closeCombineModal() {
+    $("combine-overlay").classList.remove("open");
+    document.body.style.overflow = "";
+  }
+
+  function getGrid(n) {
+    if (n <= 2) return { cols: 2, rows: 1 };
+    if (n <= 4) return { cols: 2, rows: 2 };
+    if (n <= 6) return { cols: 3, rows: 2 };
+    return { cols: 4, rows: 2 };
+  }
+
+  function loadZenMaruFont() {
+    if (window._zenMaruLoaded) return Promise.resolve();
+    return new FontFace(
+      "Zen Maru Gothic",
+      "url(https://fonts.gstatic.com/s/zenmarugothic/v14/o-0XIpIxzW5b-RxT-6A8jWAtCp-cQmbNNy7wfg.woff2)"
+    ).load().then(function(f){
+      document.fonts.add(f);
+      window._zenMaruLoaded = true;
+    }).catch(function(){});
+  }
+
+  function execCombine() {
+    if (combineSelected.length < 2) return;
+    var items = combineSelected.slice();
+    var grid = getGrid(items.length);
+    var CARD_W = 1100;
+    var CARD_H = 1800;
+    var fontSize = Math.round(CARD_W / 15);
+
+    $("combine-exec-btn").disabled = true;
+    $("combine-exec-btn").textContent = "生成中…";
+
+    loadZenMaruFont().then(function(){
+      var promises = items.map(function(card){
+        return new Promise(function(resolve){
+          var img = new Image();
+          img.crossOrigin = "anonymous";
+          img.onload = function(){ resolve(img); };
+          img.onerror = function(){ resolve(null); };
+          img.src = card.url.replace(/\/upload\/[^/]*\//, "/upload/c_limit,w_1100,h_1800,q_auto,f_png/");
+        });
+      });
+
+      Promise.all(promises).then(function(imgs){
+        var canvas = document.createElement("canvas");
+        canvas.width  = CARD_W * grid.cols;
+        canvas.height = CARD_H * grid.rows;
+        var ctx = canvas.getContext("2d");
+
+        ctx.fillStyle = "#f9b8d4";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        ctx.font = "bold " + fontSize + "px 'Zen Maru Gothic', sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "top";
+
+        items.forEach(function(card, i){
+          var col = i % grid.cols;
+          var row = Math.floor(i / grid.cols);
+          var x = col * CARD_W;
+          var y = row * CARD_H;
+          var img = imgs[i];
+          if (img) {
+            ctx.drawImage(img, x, y, CARD_W, CARD_H);
+          }
+          var text = String(card.codeName || "");
+          if (text) {
+            var tx = x + CARD_W / 2;
+            var ty = y + fontSize * 0.3;
+            ctx.strokeStyle = "#f9b8d4";
+            ctx.lineWidth = fontSize * 0.25;
+            ctx.lineJoin = "round";
+            ctx.strokeText(text, tx, ty);
+            ctx.fillStyle = "#ffffff";
+            ctx.fillText(text, tx, ty);
+          }
+        });
+
+        var dataUrl = canvas.toDataURL("image/png");
+
+        var combineImg = document.createElement("img");
+        combineImg.src = dataUrl;
+        combineImg.style.cssText = "width:100%;height:auto;display:block;border-radius:8px;";
+        var wrap = $("combine-img-wrap");
+        wrap.innerHTML = "";
+        wrap.appendChild(combineImg);
+
+        var codeNames = items.map(function(c){ return String(c.codeName || "（未入力）"); }).join("\n");
+        $("combine-text").textContent = codeNames;
+
+        $("combine-overlay").classList.add("open");
+        document.body.style.overflow = "hidden";
+
+        saveHistory(dataUrl, codeNames);
+
+        exitCombineMode();
+        $("combine-exec-btn").textContent = "結合する";
+      });
+    });
+  }
+
+  // ================= 結合履歴 =================
+  function loadHistory() {
+    try {
+      var h = localStorage.getItem(HISTORY_KEY);
+      return h ? JSON.parse(h) : [];
+    } catch(e) { return []; }
+  }
+
+  function saveHistory(dataUrl, codeNames) {
+    var history = loadHistory();
+    history.unshift({
+      image: dataUrl,
+      text: codeNames,
+      date: new Date().toLocaleString("ja-JP")
+    });
+    if (history.length > 20) history = history.slice(0, 20);
+    try {
+      localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+    } catch(e) {
+      if (history.length > 5) {
+        history = history.slice(0, 5);
+        try { localStorage.setItem(HISTORY_KEY, JSON.stringify(history)); } catch(e2) {}
+      }
+    }
+  }
+
+  function openHistory() {
+    var history = loadHistory();
+    var list = $("history-list");
+    list.innerHTML = "";
+    if (!history.length) {
+      list.innerHTML = '<div style="text-align:center;color:#c4a8c4;padding:24px">まだ履歴がありません</div>';
+    } else {
+      history.forEach(function(h, i){
+        var item = document.createElement("div");
+        item.className = "history-item";
+        item.innerHTML =
+          '<div class="history-date">' + esc(h.date) + '</div>' +
+          '<img src="' + h.image + '" class="history-thumb">' +
+          '<pre class="history-text">' + esc(h.text) + '</pre>';
+        item.addEventListener("click", function(){
+          var img = document.createElement("img");
+          img.src = h.image;
+          img.style.cssText = "width:100%;height:auto;display:block;border-radius:8px;";
+          $("combine-img-wrap").innerHTML = "";
+          $("combine-img-wrap").appendChild(img);
+          $("combine-text").textContent = h.text;
+          $("history-overlay").classList.remove("open");
+          $("combine-overlay").classList.add("open");
+        });
+        list.appendChild(item);
+      });
+    }
+    $("history-overlay").classList.add("open");
+    document.body.style.overflow = "hidden";
+  }
+
+  function esc(s) { return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
 
   var HEART_ICO_SMALL = '<svg width="22" height="22" viewBox="0 0 24 24" fill="#f9b8d4" stroke="none"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>';
 
