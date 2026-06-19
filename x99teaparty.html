@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>フレカ管理ツール</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{--pink:#f9a8c9;--text:#5c4a6e;--text-sub:#c4a8c4;--border:#f5ddef;--bg:#fef5fb;--white:#fff;--radius:16px;--green:#6dbe8d;--red:#e06f6f;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'M PLUS Rounded 1c',sans-serif;background:linear-gradient(160deg,#fff5fb 0%,#f5f0ff 100%);min-height:100vh;color:var(--text);padding:24px 16px 48px;max-width:560px;margin:0 auto;}
+h1{font-size:22px;font-weight:700;margin-bottom:4px;}
+.sub{font-size:13px;color:var(--text-sub);margin-bottom:28px;}
+.section{background:var(--white);border-radius:var(--radius);padding:20px;margin-bottom:16px;box-shadow:0 2px 10px rgba(249,168,201,0.12);}
+.section-title{font-size:13px;font-weight:700;color:var(--text-sub);margin-bottom:14px;}
+.field{margin-bottom:14px;}
+.label{font-size:12px;font-weight:700;color:var(--text-sub);margin-bottom:6px;}
+.input{width:100%;border:1.5px solid var(--border);border-radius:10px;padding:10px 12px;font-family:inherit;font-size:14px;color:var(--text);background:var(--bg);outline:none;}
+.input:focus{border-color:var(--pink);background:var(--white);}
+.hint{font-size:11px;color:var(--text-sub);margin-top:4px;}
+.run-btn{width:100%;padding:14px;background:linear-gradient(135deg,#f9b8d4,#c9b8f0);border:none;border-radius:12px;font-family:inherit;font-size:16px;font-weight:700;color:#fff;cursor:pointer;margin-top:8px;}
+.run-btn:disabled{opacity:0.5;cursor:default;}
+.log-wrap{background:#1e1e2e;border-radius:var(--radius);padding:16px;margin-top:20px;display:none;max-height:400px;overflow-y:auto;}
+.log-wrap.show{display:block;}
+.log-line{font-size:13px;font-family:monospace;line-height:1.8;word-break:break-all;}
+.log-line.ok{color:#6dbe8d;}.log-line.err{color:#e06f6f;}.log-line.info{color:#c9b8f0;}.log-line.warn{color:#f9b8d4;}
+</style>
+</head>
+<body>
+<h1>🛠️ フレカ管理ツール</h1>
+<p class="sub">ユーザーを追加します</p>
+
+<div class="section">
+  <div class="section-title">👤 新規ユーザー設定</div>
+  <div class="field">
+    <div class="label">アプリ名（表示名）</div>
+    <input class="input" id="app-name" placeholder="例：りいしょ家のフレカ">
+  </div>
+  <div class="field">
+    <div class="label">フォルダ名（半角英数字・_・-）</div>
+    <input class="input" id="folder-name" placeholder="例：friend_card_riisho">
+    <div class="hint">URLになります。スプシのタブ名・Cloudinaryフォルダ名も兼ねます。</div>
+  </div>
+  <div class="field">
+    <div class="label">データシート（タブ）名</div>
+    <input class="input" id="sheet-name" placeholder="例：りいしょ">
+  </div>
+  <div class="field">
+    <div class="label">パスワード（このユーザー用）</div>
+    <input class="input" id="password" placeholder="例：riisho2025">
+  </div>
+</div>
+
+<button class="run-btn" id="run-btn">🚀 セットアップ開始</button>
+<div class="log-wrap" id="log-wrap"></div>
+
+<script>
+// ====== 固定設定 ======
+var GAS_URL = "https://script.google.com/macros/s/AKfycbzVZTWol9Vc2MPrdpVhbRxBJ3Rnjvii6zXMZV3ltmHG-JDc6FremiTLXO_1bnUO2nExvg/exec";
+// ======================
+
+function log(msg, type){
+  type = type || "info";
+  var wrap = document.getElementById("log-wrap");
+  wrap.classList.add("show");
+  var line = document.createElement("div");
+  line.className = "log-line " + type;
+  line.textContent = msg;
+  wrap.appendChild(line);
+  wrap.scrollTop = wrap.scrollHeight;
+}
+
+document.getElementById("run-btn").addEventListener("click", function(){
+  var appName    = document.getElementById("app-name").value.trim();
+  var folderName = document.getElementById("folder-name").value.trim();
+  var sheetName  = document.getElementById("sheet-name").value.trim();
+  var password   = document.getElementById("password").value.trim();
+
+  if (!appName || !folderName || !sheetName || !password) {
+    alert("すべての項目を入力してください");
+    return;
+  }
+  if (!/^[a-zA-Z0-9_-]+$/.test(folderName)) {
+    alert("フォルダ名は半角英数字・_・- のみ使えます");
+    return;
+  }
+
+  var btn = document.getElementById("run-btn");
+  btn.disabled = true;
+  document.getElementById("log-wrap").innerHTML = "";
+  log("▶ セットアップ開始: " + folderName, "info");
+
+  fetch(GAS_URL, {
+    method: "POST",
+    headers: { "Content-Type": "text/plain" },
+    body: JSON.stringify({
+      action: "setup",
+      appName: appName,
+      folderName: folderName,
+      sheetName: sheetName,
+      password: password,
+      gasUrl: GAS_URL
+    })
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(data){
+    if (data.log) data.log.forEach(function(e){ log(e.msg, e.type); });
+    if (data.status === "ok") {
+      log("", "info");
+      log("編集用: https://yuishopri.com/" + folderName + "/", "ok");
+      log("閲覧用: https://yuishopri.com/" + folderName + "/view.html", "ok");
+      log("⚠️ icon.png と ogp.png を " + folderName + "/ に手動アップしてください", "warn");
+    } else {
+      log("❌ セットアップ失敗", "err");
+    }
+    btn.disabled = false;
+  })
+  .catch(function(e){
+    log("❌ 通信エラー: " + e.message, "err");
+    btn.disabled = false;
+  });
+});
+</script>
+</body>
+</html>
