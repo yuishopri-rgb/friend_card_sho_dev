@@ -751,11 +751,18 @@
       if (wrap) { wrap.style.display = ""; dg.appendChild(wrap); }
     });
 
-    // 非表示カードはbody末尾に待避
+    // 非表示カードは隠し置き場に待避
+    var stash = document.getElementById("card-stash");
+    if (!stash) {
+      stash = document.createElement("div");
+      stash.id = "card-stash";
+      stash.style.display = "none";
+      document.body.appendChild(stash);
+    }
     allCards.forEach(function(c){
       if (!visibleIds[c.id]) {
-        var wrap = $("wrap-" + c.id);
-        if (wrap) { wrap.style.display = "none"; document.body.appendChild(wrap); }
+        var wrap = document.getElementById("wrap-" + c.id);
+        if (wrap) stash.appendChild(wrap);
       }
     });
 
