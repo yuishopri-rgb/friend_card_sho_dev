@@ -72,8 +72,8 @@
     '    <div class="header-top">',
     '      <div class="header-title" id="header-title"></div>',
     '      <a class="header-btn" id="view-page-btn" href="./view.html" target="_blank">閲覧ページ</a>',
-    '      <button class="header-btn" id="combine-mode-btn">結合</button>',
-    '      <button class="header-btn" id="history-btn">投稿用画像</button>',
+    '      <button class="header-btn" id="combine-mode-btn">フレカ結合</button>',
+    '      <button class="header-btn" id="history-btn">履歴</button>',
     '      <button class="header-btn" id="delete-mode-btn">削除</button>',
     '      <button class="header-btn" id="settings-btn" aria-label="設定" style="width:32px;height:32px;padding:0;display:flex;align-items:center;justify-content:center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>',
     '    </div>',
@@ -123,14 +123,14 @@
     '    <div class="combine-img-wrap" id="combine-img-wrap"></div>',
     '    <div class="combine-text-area">',
     '      <pre id="combine-text"></pre>',
-    '      <button class="combine-copy-btn" id="combine-copy-btn">コピー</button>',
+    '      <button class="combine-copy-btn" id="combine-copy-btn">コーデ名をクリップボードにコピーする</button>',
     '    </div>',
     '  </div>',
     '</div>',
     '<div class="overlay" id="history-overlay">',
     '  <div class="modal combine-modal">',
     '    <button class="modal-close" id="history-close">✕</button>',
-    '    <div class="history-title">投稿用画像</div>',
+    '    <div class="history-title">履歴</div>',
     '    <div class="history-list" id="history-list"></div>',
     '  </div>',
     '</div>',
@@ -323,13 +323,13 @@
       var text = $("combine-text").textContent;
       navigator.clipboard.writeText(text).then(function(){
         $("combine-copy-btn").textContent = "\u2713 コピーしました";
-        setTimeout(function(){ $("combine-copy-btn").textContent = "コピー"; }, 2000);
+        setTimeout(function(){ $("combine-copy-btn").textContent = "コーデ名をクリップボードにコピーする"; }, 2000);
       }).catch(function(){
         var ta = document.createElement("textarea");
         ta.value = text; document.body.appendChild(ta); ta.select();
         document.execCommand("copy"); ta.remove();
         $("combine-copy-btn").textContent = "\u2713 コピーしました";
-        setTimeout(function(){ $("combine-copy-btn").textContent = "コピー"; }, 2000);
+        setTimeout(function(){ $("combine-copy-btn").textContent = "コーデ名をクリップボードにコピーする"; }, 2000);
       });
     });
     $("history-btn").addEventListener("click", openHistory);
@@ -994,7 +994,7 @@
     var grid = getGrid(items.length);
     var CARD_W = 1100;
     var CARD_H = 1800;
-    var fontSize = Math.round(CARD_W / 15);
+    var fontSize = Math.round(CARD_W / 20);
 
     $("combine-exec-btn").disabled = true;
     $("combine-exec-btn").textContent = "生成中…";
@@ -1006,7 +1006,7 @@
           img.crossOrigin = "anonymous";
           img.onload = function(){ resolve(img); };
           img.onerror = function(){ resolve(null); };
-          img.src = card.url.replace(/\/upload\/[^/]*\//, "/upload/c_limit,w_1100,h_1800,q_auto,f_png/");
+          img.src = card.url.replace(/\/upload\/[^/]*\//, "/upload/c_fill,g_center,w_1100,h_1800,q_auto,f_png/");
         });
       });
 
@@ -1035,15 +1035,15 @@
           var text = String(card.codeName || "");
           if (text) {
             // 下から20%を白で塗りつぶし
-            var whiteH = Math.round(CARD_H * 0.20);
+            var whiteH = Math.round(CARD_H * 0.12);
             var whiteY = y + CARD_H - whiteH;
             ctx.fillStyle = "rgba(255,255,255,0.92)";
             ctx.fillRect(x, whiteY, CARD_W, whiteH);
 
             // 15文字ごとに改行
             var lines = [];
-            for (var ci = 0; ci < text.length; ci += 15) {
-              lines.push(text.substring(ci, ci + 15));
+            for (var ci = 0; ci < text.length; ci += 12) {
+              lines.push(text.substring(ci, ci + 12));
             }
 
             ctx.font = "bold " + fontSize + "px 'Zen Maru Gothic', sans-serif";
@@ -1057,7 +1057,7 @@
             lines.forEach(function(line, li){
               var ty = startY + li * lineH;
               // 縁取り（濃いピンク）
-              ctx.strokeStyle = "#e8389e";
+              ctx.strokeStyle = "#f9b8d4";
               ctx.lineWidth = fontSize * 0.2;
               ctx.lineJoin = "round";
               ctx.strokeText(line, tx, ty);
