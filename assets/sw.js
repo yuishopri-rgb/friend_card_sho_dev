@@ -3,7 +3,7 @@
    - assets（css/js）とCloudinary画像をキャッシュ
    - GAS API はキャッシュしない（常に最新）
 ============================================ */
-var CACHE_NAME = "freca-cache-v1";
+var CACHE_NAME = "freca-cache-v2";
 var ASSET_PATHS = [
   "/assets/style.css",
   "/assets/view.js",
