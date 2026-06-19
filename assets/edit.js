@@ -699,8 +699,7 @@
     var q = String(searchQ || "").trim();
     if (!q) return true;
     q = q.toLowerCase();
-    return String(card.charaName || "").toLowerCase().indexOf(q) !== -1 ||
-           String(card.codeName  || "").toLowerCase().indexOf(q) !== -1;
+    return String(card.codeName || "").toLowerCase().indexOf(q) !== -1;
   }
 
   window.__editPendingGo = function(p){ pendingPage = p; updateSections(); window.scrollTo({top:0,behavior:"smooth"}); };
