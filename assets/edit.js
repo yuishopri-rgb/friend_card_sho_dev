@@ -716,29 +716,47 @@
 
   function updateSections() {
     var allCards = Object.keys(cardMap).map(function(id){ return cardMap[id]; });
-    var pendingAll = allCards.filter(function(c){ return !(c.charaName && c.codeName) || c.status === "error"; }).filter(matchCard);
-    var doneAll    = allCards.filter(function(c){ return !!(c.charaName && c.codeName) && c.status !== "error"; }).filter(matchCard);
 
-    // 全カードを一旦非表示
-    allCards.forEach(function(c){
-      var wrap = $("wrap-" + c.id);
-      if (wrap) wrap.style.display = "none";
+    // セクション別に分類（検索・フィルター適用）
+    var pendingAll = allCards.filter(function(c){
+      return (!(c.charaName && c.codeName) || c.status === "error") && matchCard(c);
+    });
+    var doneAll = allCards.filter(function(c){
+      return !!(c.charaName && c.codeName) && c.status !== "error" && matchCard(c);
     });
 
-    // pendingページ表示
+    // ページ計算
     var pTotal = Math.max(1, Math.ceil(pendingAll.length / PAGE_SIZE_EDIT));
+    var dTotal = Math.max(1, Math.ceil(doneAll.length / PAGE_SIZE_EDIT));
     if (pendingPage > pTotal) pendingPage = 1;
-    pendingAll.slice((pendingPage-1)*PAGE_SIZE_EDIT, pendingPage*PAGE_SIZE_EDIT).forEach(function(c){
+    if (donePage > dTotal) donePage = 1;
+
+    var pendingVisible = pendingAll.slice((pendingPage-1)*PAGE_SIZE_EDIT, pendingPage*PAGE_SIZE_EDIT);
+    var doneVisible    = doneAll.slice((donePage-1)*PAGE_SIZE_EDIT, donePage*PAGE_SIZE_EDIT);
+    var visibleIds = {};
+    pendingVisible.concat(doneVisible).forEach(function(c){ visibleIds[c.id] = true; });
+
+    // グリッドを一旦クリアして再構築
+    var pg = $("pending-grid");
+    var dg = $("done-grid");
+    pg.innerHTML = "";
+    dg.innerHTML = "";
+
+    pendingVisible.forEach(function(c){
       var wrap = $("wrap-" + c.id);
-      if (wrap) { wrap.style.display = ""; $("pending-grid").appendChild(wrap); }
+      if (wrap) { wrap.style.display = ""; pg.appendChild(wrap); }
+    });
+    doneVisible.forEach(function(c){
+      var wrap = $("wrap-" + c.id);
+      if (wrap) { wrap.style.display = ""; dg.appendChild(wrap); }
     });
 
-    // doneページ表示
-    var dTotal = Math.max(1, Math.ceil(doneAll.length / PAGE_SIZE_EDIT));
-    if (donePage > dTotal) donePage = 1;
-    doneAll.slice((donePage-1)*PAGE_SIZE_EDIT, donePage*PAGE_SIZE_EDIT).forEach(function(c){
-      var wrap = $("wrap-" + c.id);
-      if (wrap) { wrap.style.display = ""; $("done-grid").appendChild(wrap); }
+    // 非表示カードはbody末尾に待避
+    allCards.forEach(function(c){
+      if (!visibleIds[c.id]) {
+        var wrap = $("wrap-" + c.id);
+        if (wrap) { wrap.style.display = "none"; document.body.appendChild(wrap); }
+      }
     });
 
     $("pending-section").style.display = pendingAll.length ? "" : "none";
