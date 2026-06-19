@@ -691,11 +691,7 @@
   }
 
   function moveCardToSection(card) {
-    var wrap = $("wrap-" + card.id);
-    if (!wrap) return;
-    var complete = !!(card.charaName && card.codeName) && card.status !== "error";
-    var grid = complete ? $("done-grid") : $("pending-grid");
-    if (wrap.parentElement !== grid) grid.appendChild(wrap);
+    // updateSectionsで一括管理するため何もしない
   }
 
   function matchCard(card) {
@@ -723,7 +719,22 @@
   }
 
   function updateSections() {
+    // stash確保（なければ作る）
+    var stash = document.getElementById("card-stash");
+    if (!stash) {
+      stash = document.createElement("div");
+      stash.id = "card-stash";
+      stash.style.display = "none";
+      document.body.appendChild(stash);
+    }
+
     var allCards = Object.keys(cardMap).map(function(id){ return cardMap[id]; });
+
+    // 全カードをstashに回収してからグリッドをクリア
+    allCards.forEach(function(c){
+      var wrap = document.getElementById("wrap-" + c.id);
+      if (wrap) stash.appendChild(wrap);
+    });
 
     // セクション別に分類（検索・フィルター適用）
     var pendingAll = allCards.filter(function(c){
@@ -759,20 +770,7 @@
       if (wrap) { wrap.style.display = ""; dg.appendChild(wrap); }
     });
 
-    // 非表示カードは隠し置き場に待避
-    var stash = document.getElementById("card-stash");
-    if (!stash) {
-      stash = document.createElement("div");
-      stash.id = "card-stash";
-      stash.style.display = "none";
-      document.body.appendChild(stash);
-    }
-    allCards.forEach(function(c){
-      if (!visibleIds[c.id]) {
-        var wrap = document.getElementById("wrap-" + c.id);
-        if (wrap) stash.appendChild(wrap);
-      }
-    });
+    // 非表示カードはstashに残したまま
 
     $("pending-section").style.display = pendingAll.length ? "" : "none";
     $("done-section").style.display    = (!filterPending && doneAll.length) ? "" : "none";
