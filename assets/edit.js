@@ -41,6 +41,11 @@
   var deleteMode = false;
   var selectedIds = {};
   var selectedCount = 0;
+  var searchQ = "";
+  var filterPending = false;
+  var PAGE_SIZE_EDIT = 20;
+  var pendingPage = 1;
+  var donePage = 1;
 
   // ---- DOM構築 ----
   document.title = CONFIG.appName;
@@ -67,6 +72,13 @@
     '      <button class="header-btn" id="settings-btn" aria-label="設定" style="width:32px;height:32px;padding:0;display:flex;align-items:center;justify-content:center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>',
     '    </div>',
     '    <div class="header-sub">画像を選んでアップロードしてね</div>',
+    '    <div class="edit-search-row">',
+    '      <div class="search-box">',
+    '        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>',
+    '        <input type="search" id="edit-search" placeholder="コーデ名・キャラ名で検索">',
+    '      </div>',
+    '      <button class="filter-btn" id="filter-pending-btn">未入力のみ</button>',
+    '    </div>',
     '  </header>',
     '  <div class="delete-bar" id="delete-bar">',
     '    <div class="delete-bar-label" id="delete-bar-label">0件選択中</div>',
@@ -270,6 +282,17 @@
     $("delete-exec-btn").addEventListener("click", execDelete);
     bindImageUpload("input-icon", "btn-icon", "preview-icon", "status-icon", "icon");
     bindImageUpload("input-ogp",  "btn-ogp",  "preview-ogp",  "status-ogp",  "ogp");
+    $("edit-search").addEventListener("input", function(e){
+      searchQ = e.target.value;
+      pendingPage = 1; donePage = 1;
+      updateSections();
+    });
+    $("filter-pending-btn").addEventListener("click", function(){
+      filterPending = !filterPending;
+      $("filter-pending-btn").classList.toggle("active", filterPending);
+      pendingPage = 1; donePage = 1;
+      updateSections();
+    });
   }
 
   // ===== Canvas経由でPNG変換 → base64 =====
@@ -668,14 +691,72 @@
     if (wrap.parentElement !== grid) grid.appendChild(wrap);
   }
 
+  function matchCard(card) {
+    if (filterPending && (card.charaName && card.codeName)) return false;
+    if (!searchQ) return true;
+    var q = searchQ.toLowerCase();
+    return (card.charaName || "").toLowerCase().indexOf(q) !== -1 ||
+           (card.codeName  || "").toLowerCase().indexOf(q) !== -1;
+  }
+
+  function renderPagEdit(containerId, total, currentPage, onGo) {
+    var el = document.getElementById(containerId);
+    if (!el) return;
+    if (total <= 1) { el.innerHTML = ""; return; }
+    var html = '<button class="pg-btn arrow" ' + (currentPage===1?"disabled":"") + ' onclick="(' + onGo.toString() + ')(' + (currentPage-1) + ')">‹</button>';
+    for (var i = 1; i <= total; i++) {
+      html += '<button class="pg-btn' + (i===currentPage?" active":"") + '" onclick="(' + onGo.toString() + ')(' + i + ')">' + i + '</button>';
+    }
+    html += '<button class="pg-btn arrow" ' + (currentPage===total?"disabled":"") + ' onclick="(' + onGo.toString() + ')(' + (currentPage+1) + ')">›</button>';
+    el.innerHTML = html;
+  }
+
   function updateSections() {
-    var pc = $("pending-grid").children.length;
-    var dc = $("done-grid").children.length;
-    $("pending-section").style.display = pc ? "" : "none";
-    $("done-section").style.display = dc ? "" : "none";
-    $("pending-badge").textContent = pc;
-    $("done-badge").textContent = dc;
-    $("empty-state").style.display = (!pc && !dc) ? "" : "none";
+    var allCards = Object.keys(cardMap).map(function(id){ return cardMap[id]; });
+    var pendingAll = allCards.filter(function(c){ return !(c.charaName && c.codeName) || c.status === "error"; }).filter(matchCard);
+    var doneAll    = allCards.filter(function(c){ return !!(c.charaName && c.codeName) && c.status !== "error"; }).filter(matchCard);
+
+    // 全カードを一旦非表示
+    allCards.forEach(function(c){
+      var wrap = $("wrap-" + c.id);
+      if (wrap) wrap.style.display = "none";
+    });
+
+    // pendingページ表示
+    var pTotal = Math.max(1, Math.ceil(pendingAll.length / PAGE_SIZE_EDIT));
+    if (pendingPage > pTotal) pendingPage = 1;
+    pendingAll.slice((pendingPage-1)*PAGE_SIZE_EDIT, pendingPage*PAGE_SIZE_EDIT).forEach(function(c){
+      var wrap = $("wrap-" + c.id);
+      if (wrap) { wrap.style.display = ""; $("pending-grid").appendChild(wrap); }
+    });
+
+    // doneページ表示
+    var dTotal = Math.max(1, Math.ceil(doneAll.length / PAGE_SIZE_EDIT));
+    if (donePage > dTotal) donePage = 1;
+    doneAll.slice((donePage-1)*PAGE_SIZE_EDIT, donePage*PAGE_SIZE_EDIT).forEach(function(c){
+      var wrap = $("wrap-" + c.id);
+      if (wrap) { wrap.style.display = ""; $("done-grid").appendChild(wrap); }
+    });
+
+    $("pending-section").style.display = pendingAll.length ? "" : "none";
+    $("done-section").style.display    = (!filterPending && doneAll.length) ? "" : "none";
+    $("pending-badge").textContent = pendingAll.length;
+    $("done-badge").textContent    = doneAll.length;
+    $("empty-state").style.display = (!pendingAll.length && !doneAll.length) ? "" : "none";
+
+    // ページネーション描画
+    if (!document.getElementById("pending-pagination")) {
+      var pp = document.createElement("div");
+      pp.id = "pending-pagination"; pp.className = "pagination";
+      $("pending-section").appendChild(pp);
+    }
+    if (!document.getElementById("done-pagination")) {
+      var dp = document.createElement("div");
+      dp.id = "done-pagination"; dp.className = "pagination";
+      $("done-section").appendChild(dp);
+    }
+    renderPagEdit("pending-pagination", pTotal, pendingPage, function(p){ pendingPage = p; updateSections(); window.scrollTo({top:0,behavior:"smooth"}); });
+    renderPagEdit("done-pagination",    dTotal, donePage,    function(p){ donePage = p;    updateSections(); window.scrollTo({top:0,behavior:"smooth"}); });
   }
 
   // ================= 削除モード =================
