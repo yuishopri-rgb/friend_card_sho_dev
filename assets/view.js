@@ -159,7 +159,7 @@
     return allData.filter(function(d){
       if (activeFilter !== null && d.chara !== activeFilter) return false;
       if (!q) return true;
-      return matchSearch(String(d.code || ""), q);
+      return matchSearch(d.code || "", q);
     });
   }
 
