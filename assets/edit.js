@@ -699,15 +699,18 @@
            (card.codeName  || "").toLowerCase().indexOf(q) !== -1;
   }
 
-  function renderPagEdit(containerId, total, currentPage, onGo) {
+  window.__editPendingGo = function(p){ pendingPage = p; updateSections(); window.scrollTo({top:0,behavior:"smooth"}); };
+  window.__editDoneGo    = function(p){ donePage = p;    updateSections(); window.scrollTo({top:0,behavior:"smooth"}); };
+
+  function renderPagEdit(containerId, total, currentPage, fnName) {
     var el = document.getElementById(containerId);
     if (!el) return;
     if (total <= 1) { el.innerHTML = ""; return; }
-    var html = '<button class="pg-btn arrow" ' + (currentPage===1?"disabled":"") + ' onclick="(' + onGo.toString() + ')(' + (currentPage-1) + ')">‹</button>';
+    var html = '<button class="pg-btn arrow" ' + (currentPage===1?"disabled":"") + ' onclick="' + fnName + '(' + (currentPage-1) + ')">‹</button>';
     for (var i = 1; i <= total; i++) {
-      html += '<button class="pg-btn' + (i===currentPage?" active":"") + '" onclick="(' + onGo.toString() + ')(' + i + ')">' + i + '</button>';
+      html += '<button class="pg-btn' + (i===currentPage?" active":"") + '" onclick="' + fnName + '(' + i + ')">' + i + '</button>';
     }
-    html += '<button class="pg-btn arrow" ' + (currentPage===total?"disabled":"") + ' onclick="(' + onGo.toString() + ')(' + (currentPage+1) + ')">›</button>';
+    html += '<button class="pg-btn arrow" ' + (currentPage===total?"disabled":"") + ' onclick="' + fnName + '(' + (currentPage+1) + ')">›</button>';
     el.innerHTML = html;
   }
 
@@ -755,8 +758,8 @@
       dp.id = "done-pagination"; dp.className = "pagination";
       $("done-section").appendChild(dp);
     }
-    renderPagEdit("pending-pagination", pTotal, pendingPage, function(p){ pendingPage = p; updateSections(); window.scrollTo({top:0,behavior:"smooth"}); });
-    renderPagEdit("done-pagination",    dTotal, donePage,    function(p){ donePage = p;    updateSections(); window.scrollTo({top:0,behavior:"smooth"}); });
+    renderPagEdit("pending-pagination", pTotal, pendingPage, "__editPendingGo");
+    renderPagEdit("done-pagination",    dTotal, donePage,    "__editDoneGo");
   }
 
   // ================= 削除モード =================
