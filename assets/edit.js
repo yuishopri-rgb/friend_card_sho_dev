@@ -614,8 +614,15 @@
     });
 
     updateCardBadge(card); updateCardStyle(card);
-    var grid = (card.charaName && card.codeName) ? $("done-grid") : $("pending-grid");
-    grid.appendChild(wrap);
+    // stashに入れてからupdateSectionsで振り分け
+    var stash = document.getElementById("card-stash");
+    if (!stash) {
+      stash = document.createElement("div");
+      stash.id = "card-stash";
+      stash.style.display = "none";
+      document.body.appendChild(stash);
+    }
+    stash.appendChild(wrap);
     updateSections();
   }
 
@@ -693,10 +700,11 @@
 
   function matchCard(card) {
     if (filterPending && (card.charaName && card.codeName)) return false;
-    if (!searchQ) return true;
-    var q = searchQ.toLowerCase();
-    return (card.charaName || "").toLowerCase().indexOf(q) !== -1 ||
-           (card.codeName  || "").toLowerCase().indexOf(q) !== -1;
+    var q = String(searchQ || "").trim();
+    if (!q) return true;
+    q = q.toLowerCase();
+    return String(card.charaName || "").toLowerCase().indexOf(q) !== -1 ||
+           String(card.codeName  || "").toLowerCase().indexOf(q) !== -1;
   }
 
   window.__editPendingGo = function(p){ pendingPage = p; updateSections(); window.scrollTo({top:0,behavior:"smooth"}); };
