@@ -146,6 +146,13 @@
           if (!hasCache) showState("⚠", res.message || "読み込み失敗");
           return;
         }
+        // サーバーからテーマを適用
+        if (res.theme) {
+          document.documentElement.setAttribute("data-theme", res.theme);
+        } else {
+          document.documentElement.removeAttribute("data-theme");
+        }
+
         var fresh = res.rows || [];
         var freshStr = JSON.stringify(fresh);
         var currentStr = JSON.stringify(allData);
