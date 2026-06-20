@@ -5,6 +5,13 @@
 (function () {
   "use strict";
 
+  // テーマ読み込み（即時適用）
+  var THEME_KEY = "freca_theme";
+  try {
+    var savedTheme = localStorage.getItem(THEME_KEY);
+    if (savedTheme) document.documentElement.setAttribute("data-theme", savedTheme);
+  } catch(e) {}
+
   var BOOT = window.FRECA_CONFIG || {};
   if (!BOOT.folder || !BOOT.gasUrl) {
     document.body.innerHTML = '<div style="padding:40px;text-align:center;color:#e06f6f;font-family:sans-serif">設定エラー: folder または gasUrl が指定されていません</div>';
@@ -148,6 +155,17 @@
     '    <button class="settings-close-btn" id="settings-close-btn">×</button>',
     '  </div>',
     '  <div class="settings-body">',
+    '    <div class="settings-item" style="flex-direction:column;align-items:flex-start">',
+    '      <div class="settings-item-title">テーマカラー</div>',
+    '      <div class="theme-picker" id="theme-picker">',
+    '        <button class="theme-dot" data-theme="" style="background:linear-gradient(135deg,#f9b8d4,#c9b8f0)" title="ピンク"></button>',
+    '        <button class="theme-dot" data-theme="purple" style="background:linear-gradient(135deg,#c9b8f0,#f0b8d4)" title="パープル"></button>',
+    '        <button class="theme-dot" data-theme="blue" style="background:linear-gradient(135deg,#a8d0f0,#b8c8f0)" title="ブルー"></button>',
+    '        <button class="theme-dot" data-theme="mint" style="background:linear-gradient(135deg,#a0e8d0,#b8e0c8)" title="ミント"></button>',
+    '        <button class="theme-dot" data-theme="orange" style="background:linear-gradient(135deg,#f8c8a0,#f0d0a8)" title="オレンジ"></button>',
+    '        <button class="theme-dot" data-theme="lavender" style="background:linear-gradient(135deg,#d0b8e8,#e0c0d8)" title="ラベンダー"></button>',
+    '      </div>',
+    '    </div>',
     '    <div class="settings-item">',
     '      <div class="settings-item-label">',
     '        <div class="settings-item-title">キャラ名 自動入力</div>',
@@ -306,6 +324,26 @@
     $("settings-btn").addEventListener("click", openSettings);
     $("settings-close-btn").addEventListener("click", closeSettings);
     $("settings-overlay").addEventListener("click", closeSettings);
+    // テーマ選択
+    var themePicker = $("theme-picker");
+    if (themePicker) {
+      var currentTheme = localStorage.getItem(THEME_KEY) || "";
+      themePicker.querySelectorAll(".theme-dot").forEach(function(dot){
+        if (dot.getAttribute("data-theme") === currentTheme) dot.classList.add("active");
+        dot.addEventListener("click", function(){
+          var theme = dot.getAttribute("data-theme");
+          themePicker.querySelectorAll(".theme-dot").forEach(function(d){ d.classList.remove("active"); });
+          dot.classList.add("active");
+          if (theme) {
+            document.documentElement.setAttribute("data-theme", theme);
+            localStorage.setItem(THEME_KEY, theme);
+          } else {
+            document.documentElement.removeAttribute("data-theme");
+            localStorage.removeItem(THEME_KEY);
+          }
+        });
+      });
+    }
     var toggleAutoChara = $("toggle-auto-chara");
     toggleAutoChara.checked = settings.autoChara;
     toggleAutoChara.addEventListener("change", function(){
