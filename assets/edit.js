@@ -1056,6 +1056,7 @@
     var grid = getGrid(items.length);
     var CARD_W = 1100;
     var CARD_H = 1800;
+    // ★ 文字の大きさ：CARD_W / 20 = 55px。分母を小さくすると大きく、大きくすると小さくなる ★
     var fontSize = Math.round(CARD_W / 20);
 
     $("combine-exec-btn").disabled = true;
@@ -1099,12 +1100,14 @@
             // ★ 白塗り範囲の調整：0.12 = 下から12%。値を変えて範囲を調整 ★
             var whiteH = Math.round(CARD_H * 0.12);
             var whiteY = y + CARD_H - whiteH;
+            // ★ 白塗りの透明度：0.92 = ほぼ不透明。0.0で完全透明、1.0で完全不透明 ★
             ctx.fillStyle = "rgba(255,255,255,0.92)";
             ctx.fillRect(x, whiteY, CARD_W, whiteH);
 
             // 15文字ごとに改行
             var lines = [];
             // ▼ 改行文字数の調整はここ（12文字で改行）
+            // ★ 改行する文字数：12文字ごとに改行 ★
             for (var ci = 0; ci < text.length; ci += 12) {
               lines.push(text.substring(ci, ci + 12));
             }
@@ -1121,11 +1124,13 @@
             lines.forEach(function(line, li){
               var ty = startY + li * lineH;
               // 縁取り（濃いピンク）
+              // ★ 文字の縁取り色：#f9b8d4（ピンク）。縁の太さはlineWidth ★
               ctx.strokeStyle = "#f9b8d4";
               ctx.lineWidth = fontSize * 0.2;
               ctx.lineJoin = "round";
               ctx.strokeText(line, tx, ty);
               // 白文字
+              // ★ 文字の色：#ffffff（白） ★
               ctx.fillStyle = "#ffffff";
               ctx.fillText(line, tx, ty);
             });
