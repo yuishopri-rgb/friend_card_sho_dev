@@ -72,9 +72,14 @@
     '    <div class="header-top">',
     '      <div class="header-title" id="header-title"></div>',
     '      <a class="header-btn" id="view-page-btn" href="./view.html" target="_blank">閲覧ページ</a>',
-    '      <button class="header-btn" id="combine-mode-btn">フレカ結合</button>',
-    '      <button class="header-btn" id="history-btn">履歴</button>',
-    '      <button class="header-btn" id="delete-mode-btn">削除</button>',
+    '      <div class="header-menu-wrap">',
+    '        <button class="header-btn" id="menu-btn" aria-label="メニュー">…</button>',
+    '        <div class="header-menu" id="header-menu">',
+    '          <button class="header-menu-item" id="combine-mode-btn">🔗 フレカ結合</button>',
+    '          <button class="header-menu-item" id="history-btn">🕐 履歴</button>',
+    '          <button class="header-menu-item" id="delete-mode-btn">🗑 削除</button>',
+    '        </div>',
+    '      </div>',
     '      <button class="header-btn" id="settings-btn" aria-label="設定" style="width:32px;height:32px;padding:0;display:flex;align-items:center;justify-content:center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>',
     '    </div>',
     '    <div class="header-sub">画像を選んでアップロードしてね</div>',
@@ -297,7 +302,7 @@
       e.preventDefault(); uz.classList.remove("drag-over");
       handleFiles(Array.prototype.slice.call(e.dataTransfer.files).filter(function(f){ return f.type.indexOf("image/") === 0; }));
     });
-    $("delete-mode-btn").addEventListener("click", enterDeleteMode);
+    $("delete-mode-btn").addEventListener("click", function(){ $("header-menu").classList.remove("open"); enterDeleteMode(); });
     $("settings-btn").addEventListener("click", openSettings);
     $("settings-close-btn").addEventListener("click", closeSettings);
     $("settings-overlay").addEventListener("click", closeSettings);
@@ -311,7 +316,15 @@
     $("delete-exec-btn").addEventListener("click", execDelete);
     bindImageUpload("input-icon", "btn-icon", "preview-icon", "status-icon", "icon");
     bindImageUpload("input-ogp",  "btn-ogp",  "preview-ogp",  "status-ogp",  "ogp");
+    $("menu-btn").addEventListener("click", function(e){
+      e.stopPropagation();
+      $("header-menu").classList.toggle("open");
+    });
+    document.addEventListener("click", function(){
+      $("header-menu").classList.remove("open");
+    });
     $("combine-mode-btn").addEventListener("click", function(){
+      $("header-menu").classList.remove("open");
       combineMode ? exitCombineMode() : enterCombineMode();
     });
     $("combine-cancel-btn").addEventListener("click", exitCombineMode);
@@ -343,7 +356,7 @@
         w.document.close();
       }
     });
-    $("history-btn").addEventListener("click", openHistory);
+    $("history-btn").addEventListener("click", function(){ $("header-menu").classList.remove("open"); openHistory(); });
     $("history-close").addEventListener("click", function(){
       $("history-overlay").classList.remove("open");
       document.body.style.overflow = "";
