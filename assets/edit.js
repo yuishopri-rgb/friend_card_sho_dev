@@ -295,6 +295,15 @@
         CONFIG.appName      = data.appName || CONFIG.appName;
         document.title = CONFIG.appName;
 
+        // サーバーからテーマを適用
+        if (data.theme) {
+          document.documentElement.setAttribute("data-theme", data.theme);
+          localStorage.setItem(THEME_KEY, data.theme);
+        } else {
+          document.documentElement.removeAttribute("data-theme");
+          localStorage.removeItem(THEME_KEY);
+        }
+
         if (!CONFIG.cloudName || !CONFIG.uploadPreset) {
           $("full-loading").innerHTML = '<div class="err">Cloudinary設定が未登録です</div>';
           return;
@@ -341,6 +350,8 @@
             document.documentElement.removeAttribute("data-theme");
             localStorage.removeItem(THEME_KEY);
           }
+          // サーバーに保存（他人のviewにも反映される）
+          gasPost({ action: "save_theme", folder: CONFIG.folder, theme: theme });
         });
       });
     }
@@ -672,7 +683,6 @@
               status: "done",
             };
             cardMap[card.id] = card;
-            renderCard(card);
           });
         }
       })
@@ -735,16 +745,10 @@
     });
 
     updateCardBadge(card); updateCardStyle(card);
-    // stashに入れてからupdateSectionsで振り分け
-    var stash = document.getElementById("card-stash");
-    if (!stash) {
-      stash = document.createElement("div");
-      stash.id = "card-stash";
-      stash.style.display = "none";
-      document.body.appendChild(stash);
-    }
-    stash.appendChild(wrap);
-    updateSections();
+
+    // bodyに仮追加（非表示）→ updateSectionsがグリッドに配置する
+    wrap.style.display = "none";
+    document.body.appendChild(wrap);
   }
 
   function makeInputRow(label, id, ph, val) {
@@ -762,7 +766,12 @@
       var img = document.createElement("img");
       img.alt = "";
       img.onload = function(){ img.classList.add("loaded"); };
-      img.src = card.url ? thumbUrl(card.url) : URL.createObjectURL(card.blob);
+      if (card.blob) {
+        img.src = URL.createObjectURL(card.blob);
+      } else {
+        // data-srcに保持し、updateSectionsで表示時にsrcをセットする
+        img.dataset.src = thumbUrl(card.url);
+      }
       imgWrap.appendChild(img);
     } else {
       var ni = document.createElement("div");
@@ -830,31 +839,28 @@
     var el = document.getElementById(containerId);
     if (!el) return;
     if (total <= 1) { el.innerHTML = ""; return; }
-    var html = '<button class="pg-btn arrow" ' + (currentPage===1?"disabled":"") + ' onclick="' + fnName + '(' + (currentPage-1) + ')">‹</button>';
-    for (var i = 1; i <= total; i++) {
-      html += '<button class="pg-btn' + (i===currentPage?" active":"") + '" onclick="' + fnName + '(' + i + ')">' + i + '</button>';
+    var p = currentPage;
+    var html = '<button class="pg-btn arrow" ' + (p===1?"disabled":"") + ' onclick="' + fnName + '(' + (p-1) + ')">‹</button>';
+    var pages = [];
+    if (total <= 7) {
+      for (var i = 1; i <= total; i++) pages.push(i);
+    } else {
+      pages.push(1);
+      if (p > 3) pages.push("...");
+      for (var j = Math.max(2, p-1); j <= Math.min(total-1, p+1); j++) pages.push(j);
+      if (p < total - 2) pages.push("...");
+      pages.push(total);
     }
-    html += '<button class="pg-btn arrow" ' + (currentPage===total?"disabled":"") + ' onclick="' + fnName + '(' + (currentPage+1) + ')">›</button>';
+    pages.forEach(function(v){
+      if (v === "...") html += '<span class="pg-ellipsis">…</span>';
+      else html += '<button class="pg-btn' + (v===p?" active":"") + '" onclick="' + fnName + '(' + v + ')">' + v + '</button>';
+    });
+    html += '<button class="pg-btn arrow" ' + (p===total?"disabled":"") + ' onclick="' + fnName + '(' + (p+1) + ')">›</button>';
     el.innerHTML = html;
   }
 
   function updateSections() {
-    // stash確保（なければ作る）
-    var stash = document.getElementById("card-stash");
-    if (!stash) {
-      stash = document.createElement("div");
-      stash.id = "card-stash";
-      stash.style.display = "none";
-      document.body.appendChild(stash);
-    }
-
     var allCards = Object.keys(cardMap).map(function(id){ return cardMap[id]; });
-
-    // 全カードをstashに回収してからグリッドをクリア
-    allCards.forEach(function(c){
-      var wrap = document.getElementById("wrap-" + c.id);
-      if (wrap) stash.appendChild(wrap);
-    });
 
     // セクション別に分類（検索・フィルター適用）
     var pendingAll = allCards.filter(function(c){
@@ -882,15 +888,26 @@
     dg.innerHTML = "";
 
     pendingVisible.forEach(function(c){
-      var wrap = $("wrap-" + c.id);
+      var wrap = document.getElementById("wrap-" + c.id);
+      if (!wrap) renderCard(c);
+      wrap = document.getElementById("wrap-" + c.id);
       if (wrap) { wrap.style.display = ""; pg.appendChild(wrap); }
     });
     doneVisible.forEach(function(c){
-      var wrap = $("wrap-" + c.id);
+      var wrap = document.getElementById("wrap-" + c.id);
+      if (!wrap) renderCard(c);
+      wrap = document.getElementById("wrap-" + c.id);
       if (wrap) { wrap.style.display = ""; dg.appendChild(wrap); }
     });
 
-    // 非表示カードはstashに残したまま
+    // 表示カードの画像を読み込む
+    pendingVisible.concat(doneVisible).forEach(function(c){
+      var img = document.querySelector("#img-wrap-" + c.id + " img[data-src]");
+      if (img && !img.dataset.loaded) {
+        img.src = img.dataset.src;
+        img.dataset.loaded = "1";
+      }
+    });
 
     $("pending-section").style.display = pendingAll.length ? "" : "none";
     $("done-section").style.display    = (!filterPending && doneAll.length) ? "" : "none";
@@ -1098,12 +1115,12 @@
           var text = String(card.codeName || "");
           if (text) {
             // ★ 白塗り範囲の調整：上端と下端を0.0〜1.0で指定（0.0=カード上端、1.0=カード下端）★
-            // 例）0.80〜0.95 → 下の方15%を白塗り / 0.40〜0.50 → 中央あたりを白塗り
-            var WHITE_FROM = 0.50;  // ★ 白塗り開始位置（上から何%）★
+            // 例）0.80〜0.95 → 下の方15%を白塗り / 0.30〜0.50 → 中央あたりを白塗り
+            var WHITE_FROM = 0.5;  // ★ 白塗り開始位置（上から何%）★
             var WHITE_TO   = 0.6;  // ★ 白塗り終了位置（上から何%）★
             var whiteY = y + Math.round(CARD_H * WHITE_FROM);
             var whiteH = Math.round(CARD_H * (WHITE_TO - WHITE_FROM));
-            // ★ 白塗りの透明度：0.92 = ほぼ不透明。0.0で完全透明、1.0で完全不透明 ★
+            // ★ 白塗りの透明度：1 = 完全不透明。0.0で完全透明、1.0で完全不透明 ★
             ctx.fillStyle = "rgba(255,255,255,1)";
             ctx.fillRect(x, whiteY, CARD_W, whiteH);
 
@@ -1173,30 +1190,30 @@
   }
 
   function saveHistory(dataUrl, codeNames) {
-    // サムネイル化してlocalStorageに保存（フルサイズはデータが大きすぎるため）
+    // サムネイル化してlocalStorageに保存（フルサイズはデータが大きすぎるため保存しない）
     var thumbImg = new Image();
     thumbImg.onload = function(){
       var tc = document.createElement("canvas");
-      var scale = 300 / thumbImg.width;
-      tc.width = 300;
+      var scale = 400 / thumbImg.width;
+      tc.width = 400;
       tc.height = Math.round(thumbImg.height * scale);
       tc.getContext("2d").drawImage(thumbImg, 0, 0, tc.width, tc.height);
-      var thumbUrl = tc.toDataURL("image/jpeg", 0.7);
+      var thumbUrl = tc.toDataURL("image/jpeg", 0.75);
       var history = loadHistory();
       history.unshift({
         thumb: thumbUrl,
-        full: dataUrl,
         text: codeNames,
         date: new Date().toLocaleString("ja-JP")
       });
       if (history.length > 10) history = history.slice(0, 10);
-      // fullはデカいのでtry/catchで溢れたらfullを削って保存
       try {
         localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
       } catch(e) {
-        // fullを削ってサムネのみ保存
-        history.forEach(function(h){ delete h.full; });
-        try { localStorage.setItem(HISTORY_KEY, JSON.stringify(history)); } catch(e2) {}
+        // 古い履歴を減らして再試行
+        if (history.length > 3) {
+          history = history.slice(0, 3);
+          try { localStorage.setItem(HISTORY_KEY, JSON.stringify(history)); } catch(e2) {}
+        }
       }
     };
     thumbImg.src = dataUrl;
@@ -1217,7 +1234,7 @@
           '<div class="history-date">' + esc(h.date) + '</div>' +
           '<img src="' + imgSrc + '" class="history-thumb">';
         item.addEventListener("click", function(){
-          var showSrc = h.full || h.thumb || h.image || "";
+          var showSrc = h.thumb || h.image || "";
           var img = document.createElement("img");
           img.src = showSrc;
           img.style.cssText = "max-width:100%;max-height:50vh;object-fit:contain;display:block;border-radius:8px;margin:0 auto;";
