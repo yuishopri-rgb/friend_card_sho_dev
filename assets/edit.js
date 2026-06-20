@@ -125,6 +125,7 @@
     '      <pre id="combine-text"></pre>',
     '      <button class="combine-copy-btn" id="combine-copy-btn">コーデ名をクリップボードにコピーする</button>',
     '    </div>',
+    '    <button class="combine-save-btn" id="combine-save-btn">画像を保存する</button>',
     '  </div>',
     '</div>',
     '<div class="overlay" id="history-overlay">',
@@ -331,6 +332,16 @@
         $("combine-copy-btn").textContent = "\u2713 コピーしました";
         setTimeout(function(){ $("combine-copy-btn").textContent = "コーデ名をクリップボードにコピーする"; }, 2000);
       });
+    });
+    $("combine-save-btn").addEventListener("click", function(){
+      var src = window._combineCurrentImage;
+      if (!src) return;
+      // iOS/Android: 新しいタブで開いて長押し保存
+      var w = window.open();
+      if (w) {
+        w.document.write('<html><head><meta name="viewport" content="width=device-width"><title>フレカ結合画像</title></head><body style="margin:0;background:#fdf4fa;display:flex;align-items:center;justify-content:center;min-height:100vh"><img src="' + src + '" style="max-width:100%;height:auto"></body></html>');
+        w.document.close();
+      }
     });
     $("history-btn").addEventListener("click", openHistory);
     $("history-close").addEventListener("click", function(){
@@ -1034,7 +1045,7 @@
           }
           var text = String(card.codeName || "");
           if (text) {
-            // 下から20%を白で塗りつぶし
+            // ★ 白塗り範囲の調整：0.12 = 下から12%。値を変えて範囲を調整 ★
             var whiteH = Math.round(CARD_H * 0.12);
             var whiteY = y + CARD_H - whiteH;
             ctx.fillStyle = "rgba(255,255,255,0.92)";
@@ -1042,6 +1053,7 @@
 
             // 15文字ごとに改行
             var lines = [];
+            // ▼ 改行文字数の調整はここ（12文字で改行）
             for (var ci = 0; ci < text.length; ci += 12) {
               lines.push(text.substring(ci, ci + 12));
             }
@@ -1049,6 +1061,7 @@
             ctx.font = "bold " + fontSize + "px 'Zen Maru Gothic', sans-serif";
             ctx.textAlign = "center";
             ctx.textBaseline = "middle";
+            // ★ 文字サイズはfontSize、行間はlineH、配置位置はstartYで調整 ★
             var lineH = fontSize * 1.4;
             var totalTextH = lineH * lines.length;
             var startY = whiteY + (whiteH - totalTextH) / 2 + lineH / 2;
@@ -1080,6 +1093,7 @@
         var codeNames = items.map(function(c){ return String(c.codeName || "（未入力）"); }).join("\n");
         $("combine-text").textContent = codeNames;
 
+        window._combineCurrentImage = dataUrl;
         $("combine-overlay").classList.add("open");
         document.body.style.overflow = "hidden";
 
@@ -1100,21 +1114,33 @@
   }
 
   function saveHistory(dataUrl, codeNames) {
-    var history = loadHistory();
-    history.unshift({
-      image: dataUrl,
-      text: codeNames,
-      date: new Date().toLocaleString("ja-JP")
-    });
-    if (history.length > 20) history = history.slice(0, 20);
-    try {
-      localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
-    } catch(e) {
-      if (history.length > 5) {
-        history = history.slice(0, 5);
+    // サムネイル化してlocalStorageに保存（フルサイズはデータが大きすぎるため）
+    var thumbImg = new Image();
+    thumbImg.onload = function(){
+      var tc = document.createElement("canvas");
+      var scale = 300 / thumbImg.width;
+      tc.width = 300;
+      tc.height = Math.round(thumbImg.height * scale);
+      tc.getContext("2d").drawImage(thumbImg, 0, 0, tc.width, tc.height);
+      var thumbUrl = tc.toDataURL("image/jpeg", 0.7);
+      var history = loadHistory();
+      history.unshift({
+        thumb: thumbUrl,
+        full: dataUrl,
+        text: codeNames,
+        date: new Date().toLocaleString("ja-JP")
+      });
+      if (history.length > 10) history = history.slice(0, 10);
+      // fullはデカいのでtry/catchで溢れたらfullを削って保存
+      try {
+        localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+      } catch(e) {
+        // fullを削ってサムネのみ保存
+        history.forEach(function(h){ delete h.full; });
         try { localStorage.setItem(HISTORY_KEY, JSON.stringify(history)); } catch(e2) {}
       }
-    }
+    };
+    thumbImg.src = dataUrl;
   }
 
   function openHistory() {
@@ -1127,17 +1153,20 @@
       history.forEach(function(h, i){
         var item = document.createElement("div");
         item.className = "history-item";
+        var imgSrc = h.thumb || h.image || h.full || "";
         item.innerHTML =
           '<div class="history-date">' + esc(h.date) + '</div>' +
-          '<img src="' + h.image + '" class="history-thumb">' +
-          '<pre class="history-text">' + esc(h.text) + '</pre>';
+          '<img src="' + imgSrc + '" class="history-thumb">';
         item.addEventListener("click", function(){
+          var showSrc = h.full || h.thumb || h.image || "";
           var img = document.createElement("img");
-          img.src = h.image;
+          img.src = showSrc;
           img.style.cssText = "max-width:100%;max-height:50vh;object-fit:contain;display:block;border-radius:8px;margin:0 auto;";
           $("combine-img-wrap").innerHTML = "";
           $("combine-img-wrap").appendChild(img);
           $("combine-text").textContent = h.text;
+          // 保存ボタンの画像URLを更新
+          window._combineCurrentImage = showSrc;
           $("history-overlay").classList.remove("open");
           $("combine-overlay").classList.add("open");
         });
