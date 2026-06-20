@@ -5,6 +5,12 @@
 (function () {
   "use strict";
 
+  // テーマ読み込み（即時適用）
+  try {
+    var savedTheme = localStorage.getItem("freca_theme");
+    if (savedTheme) document.documentElement.setAttribute("data-theme", savedTheme);
+  } catch(e) {}
+
   var BOOT = window.FRECA_CONFIG || {};
   if (!BOOT.folder || !BOOT.gasUrl) {
     document.body.innerHTML = '<div style="padding:40px;text-align:center;color:#e06f6f;font-family:sans-serif">設定エラー: folder または gasUrl が指定されていません</div>';
