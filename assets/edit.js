@@ -1099,8 +1099,8 @@
           if (text) {
             // ★ 白塗り範囲の調整：上端と下端を0.0〜1.0で指定（0.0=カード上端、1.0=カード下端）★
             // 例）0.80〜0.95 → 下の方15%を白塗り / 0.30〜0.50 → 中央あたりを白塗り
-            var WHITE_FROM = 0.80;  // ★ 白塗り開始位置（上から何%）★
-            var WHITE_TO   = 0.95;  // ★ 白塗り終了位置（上から何%）★
+            var WHITE_FROM = 0.40;  // ★ 白塗り開始位置（上から何%）★
+            var WHITE_TO   = 0.6;  // ★ 白塗り終了位置（上から何%）★
             var whiteY = y + Math.round(CARD_H * WHITE_FROM);
             var whiteH = Math.round(CARD_H * (WHITE_TO - WHITE_FROM));
             // ★ 白塗りの透明度：0.92 = ほぼ不透明。0.0で完全透明、1.0で完全不透明 ★
