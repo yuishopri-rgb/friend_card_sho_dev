@@ -21,11 +21,11 @@
   --radius:  16px;
   --green:   #6dbe8d;
   --red:     #e06f6f;
-  --footer-h:        72px;   /* ★ フッターの高さ ★ */
+  --footer-h:        85px;   /* ★ フッターの高さ ★ */
   --footer-icon-size: 24px;   /* ★ アイコンサイズ ★ */
   --footer-font-size: 11px;   /* ★ タブ文字サイズ ★ */
-  --footer-min-width: 64px;   /* ★ タブの最小幅 ★ */
-  --footer-bottom-pad: 10px;  /* ★ フッター下の余白 ★ */
+  --footer-min-width: 72px;   /* ★ タブの最小幅 ★ */
+  --footer-bottom-pad: 20px;  /* ★ フッター下の余白 ★ */
 }
 * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 body {
