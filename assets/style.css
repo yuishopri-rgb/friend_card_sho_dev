@@ -21,7 +21,7 @@
   --radius:  16px;
   --green:   #6dbe8d;
   --red:     #e06f6f;
-  --footer-h:        100px;   /* ★ フッターの高さ ★ */
+  --footer-h:        100px;  /* ★ フッターの高さ ★ */
   --footer-icon-size: 24px;   /* ★ アイコンサイズ ★ */
   --footer-font-size: 11px;   /* ★ タブ文字サイズ ★ */
   --footer-min-width: 90px;   /* ★ タブの最小幅 ★ */
@@ -735,9 +735,8 @@ body {
   display: inline-block;
   font-size: 12px;
   font-weight: 700;
-  color: var(--accent);
-  background: #fff;
-  border: 1.5px solid var(--accent);
+  color: #fff;
+  background: rgba(255,255,255,0.22);
   border-radius: 20px;
   padding: 4px 10px;
   white-space: nowrap;
