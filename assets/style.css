@@ -725,10 +725,17 @@ body {
 
 /* ===== viewヘッダー コメント ===== */
 .header-comment {
-  font-size: 11px;
-  color: var(--text-sub);
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent);
+  background: #fff;
+  border: 1.5px solid var(--accent);
+  border-radius: 20px;
+  padding: 4px 10px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 120px;
+  max-width: 130px;
 }
+.header-comment:empty { display: none; }
