@@ -21,10 +21,11 @@
   --radius:  16px;
   --green:   #6dbe8d;
   --red:     #e06f6f;
-  --footer-h:        90px;   /* ★ フッターの高さ ★ */
+  --footer-h:        72px;   /* ★ フッターの高さ ★ */
   --footer-icon-size: 24px;   /* ★ アイコンサイズ ★ */
   --footer-font-size: 11px;   /* ★ タブ文字サイズ ★ */
-  --footer-min-width: 70px;   /* ★ タブの最小幅 ★ */
+  --footer-min-width: 64px;   /* ★ タブの最小幅 ★ */
+  --footer-bottom-pad: 10px;  /* ★ フッター下の余白 ★ */
 }
 * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 body {
@@ -265,9 +266,12 @@ body {
 /* ===== フッター（view） ===== */
 .footer {
   position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
-  width: 100%; max-width: 480px; height: var(--footer-h);
+  width: 100%; max-width: 480px;
+  height: calc(var(--footer-h) + var(--footer-bottom-pad));
   background: var(--white); border-top: 1px solid var(--accent-border);
   display: flex; overflow-x: auto; z-index: 30; scrollbar-width: none;
+  padding-bottom: var(--footer-bottom-pad);
+  align-items: flex-start;
 }
 .footer::-webkit-scrollbar { display: none; }
 .nav-btn {
@@ -321,7 +325,7 @@ body {
 .spin { display: inline-block; animation: spin 0.8s linear infinite; }
 
 .pad-bottom { padding-bottom: 40px; }
-.pad-bottom-footer { padding-bottom: calc(var(--footer-h) + 8px); }
+.pad-bottom-footer { padding-bottom: calc(var(--footer-h) + var(--footer-bottom-pad) + 8px); }
 
 /* ===== 設定パネル ===== */
 .settings-overlay {
