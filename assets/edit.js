@@ -138,7 +138,7 @@
     '      <pre id="combine-text"></pre>',
     '      <button class="combine-copy-btn" id="combine-copy-btn">コーデ名をクリップボードにコピーする</button>',
     '    </div>',
-    '    <button class="combine-save-btn" id="combine-save-btn">画像を保存する</button>',
+    '    <div class="combine-save-hint">画像を長押しして保存してね</div>',
     '  </div>',
     '</div>',
     '<div class="overlay" id="history-overlay">',
@@ -411,17 +411,7 @@
         setTimeout(function(){ $("combine-copy-btn").textContent = "コーデ名をクリップボードにコピーする"; }, 2000);
       });
     });
-    $("combine-save-btn").addEventListener("click", function(){
-      var src = window._combineCurrentImage;
-      if (!src) return;
-      // aタグでダウンロード（PWAモードでも元タブに留まる）
-      var a = document.createElement("a");
-      a.href = src;
-      a.download = "freca_" + new Date().getTime() + ".png";
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-    });
+
     $("history-btn").addEventListener("click", function(){ $("header-menu").classList.remove("open"); openHistory(); });
     $("comment-save-btn").addEventListener("click", function(){
       var comment = $("comment-input").value.trim();
