@@ -722,3 +722,13 @@ body {
   border-color: var(--text);
   transform: scale(1.1);
 }
+
+/* ===== viewヘッダー コメント ===== */
+.header-comment {
+  font-size: 11px;
+  color: var(--text-sub);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 120px;
+}
