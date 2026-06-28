@@ -52,7 +52,8 @@
   var combineMode = false;
   var combineSelected = [];
   var MAX_COMBINE = 8;
-  var HISTORY_KEY = "freca_combine_history_" + BOOT.folder;
+  var HISTORY_KEY  = "freca_combine_history_" + BOOT.folder;
+  var COMMENT_KEY  = "freca_comment_" + BOOT.folder;
   var filterPending = false;
   var PAGE_SIZE_EDIT = 20;
   var pendingPage = 1;
@@ -175,6 +176,15 @@
     '        <input type="checkbox" id="toggle-auto-chara">',
     '        <span class="toggle-slider"></span>',
     '      </label>',
+    '    </div>',
+    '    <div class="settings-divider"></div>',
+    '    <div class="settings-item" style="flex-direction:column;align-items:flex-start;gap:6px">',
+    '      <div class="settings-item-title">コメント（閲覧ページに表示）</div>',
+    '      <div style="display:flex;gap:8px;width:100%">',
+    '        <input class="input-field" id="comment-input" type="text" placeholder="例：2025年1月更新" style="flex:1;font-size:13px">',
+    '        <button class="settings-img-send-btn" id="comment-save-btn">保存</button>',
+    '      </div>',
+    '      <div class="settings-img-status" id="comment-status"></div>',
     '    </div>',
     '    <div class="settings-divider"></div>',
     '    <div class="settings-img-upload-block">',
@@ -303,6 +313,11 @@
           document.documentElement.removeAttribute("data-theme");
           localStorage.removeItem(THEME_KEY);
         }
+        // コメントを設定パネルに反映
+        if ($("comment-input")) {
+          $("comment-input").value = data.comment || "";
+          try { localStorage.setItem(COMMENT_KEY, data.comment || ""); } catch(e) {}
+        }
 
         if (!CONFIG.cloudName || !CONFIG.uploadPreset) {
           $("full-loading").innerHTML = '<div class="err">Cloudinary設定が未登録です</div>';
@@ -406,6 +421,26 @@
       }
     });
     $("history-btn").addEventListener("click", function(){ $("header-menu").classList.remove("open"); openHistory(); });
+    $("comment-save-btn").addEventListener("click", function(){
+      var comment = $("comment-input").value.trim();
+      var status  = $("comment-status");
+      status.textContent = "保存中…";
+      status.style.color = "#aaa";
+      gasPost({ action: "save_comment", folder: CONFIG.folder, comment: comment })
+        .then(function(data){
+          if (data.status === "ok") {
+            status.textContent = "✓ 保存しました";
+            status.style.color = "#4caf50";
+            try { localStorage.setItem(COMMENT_KEY, comment); } catch(e) {}
+          } else {
+            status.textContent = "エラー";
+            status.style.color = "#e06f6f";
+          }
+        }).catch(function(){
+          status.textContent = "通信エラー";
+          status.style.color = "#e06f6f";
+        });
+    });
     $("history-close").addEventListener("click", function(){
       $("history-overlay").classList.remove("open");
       document.body.style.overflow = "";
