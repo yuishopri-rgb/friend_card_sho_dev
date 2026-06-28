@@ -265,5 +265,16 @@
     navigator.serviceWorker.register("/assets/sw.js").catch(function(){});
   }
 
+  // PCでフッターをホイールスクロール可能にする
+  document.addEventListener("wheel", function(e){
+    var footer = document.getElementById("footer");
+    if (!footer) return;
+    var rect = footer.getBoundingClientRect();
+    if (e.clientY >= rect.top && e.clientY <= rect.bottom) {
+      e.preventDefault();
+      footer.scrollLeft += e.deltaY;
+    }
+  }, { passive: false });
+
   fetchData(false);
 })();
