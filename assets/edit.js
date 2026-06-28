@@ -138,7 +138,7 @@
     '      <pre id="combine-text"></pre>',
     '      <button class="combine-copy-btn" id="combine-copy-btn">コーデ名をクリップボードにコピーする</button>',
     '    </div>',
-    '    <div class="combine-save-hint">画像を長押しして保存してね</div>',
+    '    <button class="combine-save-btn" id="combine-save-btn">画像を保存する</button>',
     '  </div>',
     '</div>',
     '<div class="overlay" id="history-overlay">',
@@ -412,6 +412,29 @@
       });
     });
 
+    $("combine-save-btn").addEventListener("click", function(){
+      var src = window._combineCurrentImage;
+      if (!src) return;
+      var w = window.open();
+      if (w) {
+        w.document.write([
+          '<!DOCTYPE html><html><head>',
+          '<meta charset="UTF-8">',
+          '<meta name="viewport" content="width=device-width,initial-scale=1.0">',
+          '<title>フレカ結合画像</title>',
+          '<style>',
+          'body{margin:0;background:#fdf4fa;display:flex;flex-direction:column;align-items:center;min-height:100vh;font-family:sans-serif;}',
+          '.back-btn{position:fixed;top:12px;left:12px;background:#f9b8d4;color:#fff;border:none;border-radius:20px;padding:8px 18px;font-size:14px;font-weight:700;cursor:pointer;z-index:10;}',
+          'img{max-width:100%;height:auto;margin-top:56px;}',
+          '</style>',
+          '</head><body>',
+          '<button class="back-btn" onclick="window.close()">← 戻る</button>',
+          '<img src="' + src + '">',
+          '</body></html>'
+        ].join(""));
+        w.document.close();
+      }
+    });
     $("history-btn").addEventListener("click", function(){ $("header-menu").classList.remove("open"); openHistory(); });
     $("comment-save-btn").addEventListener("click", function(){
       var comment = $("comment-input").value.trim();
