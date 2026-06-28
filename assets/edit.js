@@ -445,9 +445,11 @@
     $("history-close").addEventListener("click", function(){
       $("history-overlay").classList.remove("open");
       document.body.style.overflow = "";
+      document.body.style.position = "";
+      document.body.style.width = "";
     });
     $("history-overlay").addEventListener("click", function(e){
-      if (e.target === $("history-overlay")) { $("history-overlay").classList.remove("open"); document.body.style.overflow = ""; }
+      if (e.target === $("history-overlay")) { $("history-overlay").classList.remove("open"); document.body.style.overflow = ""; document.body.style.position = ""; document.body.style.width = ""; }
     });
     $("edit-search").addEventListener("input", function(e){
       searchQ = e.target.value;
@@ -711,7 +713,7 @@
       .then(function(r){ return r.json(); })
       .then(function(data){
         if (data.status === "ok" && data.rows && data.rows.length) {
-          data.rows.forEach(function(row){
+          data.rows.slice().reverse().forEach(function(row){
             var card = {
               id: "exist-" + Math.random().toString(36).slice(2),
               blob: null, url: row.url,
@@ -1083,6 +1085,8 @@
   function closeCombineModal() {
     $("combine-overlay").classList.remove("open");
     document.body.style.overflow = "";
+    document.body.style.position = "";
+    document.body.style.width = "";
   }
 
   function getGrid(n) {
@@ -1208,8 +1212,10 @@
         window._combineCurrentImage = dataUrl;
         $("combine-overlay").classList.add("open");
         document.body.style.overflow = "hidden";
+        document.body.style.position = "fixed";
+        document.body.style.width = "100%";
 
-        saveHistory(dataUrl, codeNames);
+        saveHistory(canvas, codeNames);
 
         exitCombineMode();
         $("combine-exec-btn").textContent = "結合する";
@@ -1225,16 +1231,15 @@
     } catch(e) { return []; }
   }
 
-  function saveHistory(dataUrl, codeNames) {
-    // サムネイル化してlocalStorageに保存（フルサイズはデータが大きすぎるため保存しない）
-    var thumbImg = new Image();
-    thumbImg.onload = function(){
+  function saveHistory(srcCanvas, codeNames) {
+    // 元のCanvasを直接縮小コピー（toDataURL経由を避けてiOSメモリ節約）
+    try {
       var tc = document.createElement("canvas");
-      var scale = 400 / thumbImg.width;
-      tc.width = 400;
-      tc.height = Math.round(thumbImg.height * scale);
-      tc.getContext("2d").drawImage(thumbImg, 0, 0, tc.width, tc.height);
-      var thumbUrl = tc.toDataURL("image/jpeg", 0.75);
+      var scale = 200 / srcCanvas.width;
+      tc.width = 200;
+      tc.height = Math.round(srcCanvas.height * scale);
+      tc.getContext("2d").drawImage(srcCanvas, 0, 0, tc.width, tc.height);
+      var thumbUrl = tc.toDataURL("image/jpeg", 0.6);
       var history = loadHistory();
       history.unshift({
         thumb: thumbUrl,
@@ -1245,14 +1250,14 @@
       try {
         localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
       } catch(e) {
-        // 古い履歴を減らして再試行
         if (history.length > 3) {
           history = history.slice(0, 3);
           try { localStorage.setItem(HISTORY_KEY, JSON.stringify(history)); } catch(e2) {}
         }
       }
-    };
-    thumbImg.src = dataUrl;
+    } catch(e) {
+      console.warn("saveHistory失敗:", e);
+    }
   }
 
   function openHistory() {
@@ -1287,6 +1292,8 @@
     }
     $("history-overlay").classList.add("open");
     document.body.style.overflow = "hidden";
+    document.body.style.position = "fixed";
+    document.body.style.width = "100%";
   }
 
   function esc(s) { return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
