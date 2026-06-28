@@ -414,12 +414,13 @@
     $("combine-save-btn").addEventListener("click", function(){
       var src = window._combineCurrentImage;
       if (!src) return;
-      // iOS/Android: 新しいタブで開いて長押し保存
-      var w = window.open();
-      if (w) {
-        w.document.write('<html><head><meta name="viewport" content="width=device-width"><title>フレカ結合画像</title></head><body style="margin:0;background:#fdf4fa;display:flex;align-items:center;justify-content:center;min-height:100vh"><img src="' + src + '" style="max-width:100%;height:auto"></body></html>');
-        w.document.close();
-      }
+      // aタグでダウンロード（PWAモードでも元タブに留まる）
+      var a = document.createElement("a");
+      a.href = src;
+      a.download = "freca_" + new Date().getTime() + ".png";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
     });
     $("history-btn").addEventListener("click", function(){ $("header-menu").classList.remove("open"); openHistory(); });
     $("comment-save-btn").addEventListener("click", function(){
