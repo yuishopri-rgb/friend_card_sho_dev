@@ -21,7 +21,10 @@
   --radius:  16px;
   --green:   #6dbe8d;
   --red:     #e06f6f;
-  --footer-h:62px;
+  --footer-h:        72px;   /* ★ フッターの高さ ★ */
+  --footer-icon-size: 24px;   /* ★ アイコンサイズ ★ */
+  --footer-font-size: 11px;   /* ★ タブ文字サイズ ★ */
+  --footer-min-width: 64px;   /* ★ タブの最小幅 ★ */
 }
 * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 body {
@@ -268,13 +271,13 @@ body {
 }
 .footer::-webkit-scrollbar { display: none; }
 .nav-btn {
-  flex: 0 0 auto; min-width: 60px; display: flex; flex-direction: column;
+  flex: 0 0 auto; min-width: var(--footer-min-width); display: flex; flex-direction: column;
   align-items: center; justify-content: center; gap: 3px;
   border: none; background: none; cursor: pointer;
-  font-family: inherit; color: #bdbdbd; font-size: 10px; font-weight: 500;
+  font-family: inherit; color: #bdbdbd; font-size: var(--footer-font-size); font-weight: 500;
   padding: 6px 8px; transition: color 0.15s; position: relative; white-space: nowrap;
 }
-.nav-btn svg { width: 22px; height: 22px; transition: transform 0.15s; }
+.nav-btn svg { width: var(--footer-icon-size); height: var(--footer-icon-size); transition: transform 0.15s; }
 .nav-btn.active { color: var(--pink); }
 .nav-btn.active svg { transform: scale(1.15); }
 .nav-btn.active::after {
