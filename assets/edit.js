@@ -52,7 +52,6 @@
   var combineMode = false;
   var combineSelected = [];
   var MAX_COMBINE = 8;
-  var HISTORY_KEY  = "freca_combine_history_" + BOOT.folder;
   var COMMENT_KEY  = "freca_comment_" + BOOT.folder;
   var filterPending = false;
   var PAGE_SIZE_EDIT = 20;
@@ -80,14 +79,8 @@
     '    <div class="header-top">',
     '      <div class="header-title" id="header-title"></div>',
     '      <a class="header-btn" id="view-page-btn" href="./view.html" target="_blank">閲覧ページ</a>',
-    '      <div class="header-menu-wrap">',
-    '        <button class="header-btn" id="menu-btn" aria-label="メニュー">…</button>',
-    '        <div class="header-menu" id="header-menu">',
-    '          <button class="header-menu-item" id="combine-mode-btn">🔗 フレカ結合</button>',
-    '          <button class="header-menu-item" id="history-btn">🕐 履歴</button>',
-    '          <button class="header-menu-item" id="delete-mode-btn">🗑 削除</button>',
-    '        </div>',
-    '      </div>',
+    '      <button class="header-btn" id="combine-mode-btn">フレカ結合</button>',
+    '      <button class="header-btn" id="delete-mode-btn">削除</button>',
     '      <button class="header-btn" id="settings-btn" aria-label="設定" style="width:32px;height:32px;padding:0;display:flex;align-items:center;justify-content:center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>',
     '    </div>',
     '    <div class="header-sub">画像を選んでアップロードしてね</div>',
@@ -141,13 +134,7 @@
     '    <button class="combine-save-btn" id="combine-save-btn">画像を保存する</button>',
     '  </div>',
     '</div>',
-    '<div class="overlay" id="history-overlay">',
-    '  <div class="modal combine-modal">',
-    '    <button class="modal-close" id="history-close">✕</button>',
-    '    <div class="history-title">履歴</div>',
-    '    <div class="history-list" id="history-list"></div>',
-    '  </div>',
-    '</div>',
+
     '<div class="toast" id="toast"></div>',
     '<div class="settings-overlay" id="settings-overlay"></div>',
     '<div class="settings-panel" id="settings-panel">',
@@ -345,7 +332,7 @@
       e.preventDefault(); uz.classList.remove("drag-over");
       handleFiles(Array.prototype.slice.call(e.dataTransfer.files).filter(function(f){ return f.type.indexOf("image/") === 0; }));
     });
-    $("delete-mode-btn").addEventListener("click", function(){ $("header-menu").classList.remove("open"); enterDeleteMode(); });
+    $("delete-mode-btn").addEventListener("click", enterDeleteMode);
     $("settings-btn").addEventListener("click", openSettings);
     $("settings-close-btn").addEventListener("click", closeSettings);
     $("settings-overlay").addEventListener("click", closeSettings);
@@ -381,15 +368,7 @@
     $("delete-exec-btn").addEventListener("click", execDelete);
     bindImageUpload("input-icon", "btn-icon", "preview-icon", "status-icon", "icon");
     bindImageUpload("input-ogp",  "btn-ogp",  "preview-ogp",  "status-ogp",  "ogp");
-    $("menu-btn").addEventListener("click", function(e){
-      e.stopPropagation();
-      $("header-menu").classList.toggle("open");
-    });
-    document.addEventListener("click", function(){
-      $("header-menu").classList.remove("open");
-    });
     $("combine-mode-btn").addEventListener("click", function(){
-      $("header-menu").classList.remove("open");
       combineMode ? exitCombineMode() : enterCombineMode();
     });
     $("combine-cancel-btn").addEventListener("click", exitCombineMode);
@@ -435,7 +414,6 @@
         w.document.close();
       }
     });
-    $("history-btn").addEventListener("click", function(){ $("header-menu").classList.remove("open"); openHistory(); });
     $("comment-save-btn").addEventListener("click", function(){
       var comment = $("comment-input").value.trim();
       var status  = $("comment-status");
@@ -456,14 +434,10 @@
           status.style.color = "#e06f6f";
         });
     });
-    $("history-close").addEventListener("click", function(){
-      $("history-overlay").classList.remove("open");
       document.body.style.overflow = "";
       document.body.style.position = "";
       document.body.style.width = "";
     });
-    $("history-overlay").addEventListener("click", function(e){
-      if (e.target === $("history-overlay")) { $("history-overlay").classList.remove("open"); document.body.style.overflow = ""; document.body.style.position = ""; document.body.style.width = ""; }
     });
     $("edit-search").addEventListener("input", function(e){
       searchQ = e.target.value;
@@ -1229,85 +1203,10 @@
         document.body.style.position = "fixed";
         document.body.style.width = "100%";
 
-        saveHistory(canvas, codeNames);
-
         exitCombineMode();
         $("combine-exec-btn").textContent = "結合する";
       });
     });
-  }
-
-  // ================= 結合履歴 =================
-  function loadHistory() {
-    try {
-      var h = localStorage.getItem(HISTORY_KEY);
-      return h ? JSON.parse(h) : [];
-    } catch(e) { return []; }
-  }
-
-  function saveHistory(srcCanvas, codeNames) {
-    // 元のCanvasを直接縮小コピー（toDataURL経由を避けてiOSメモリ節約）
-    try {
-      var tc = document.createElement("canvas");
-      var scale = 200 / srcCanvas.width;
-      tc.width = 200;
-      tc.height = Math.round(srcCanvas.height * scale);
-      tc.getContext("2d").drawImage(srcCanvas, 0, 0, tc.width, tc.height);
-      var thumbUrl = tc.toDataURL("image/jpeg", 0.6);
-      var history = loadHistory();
-      history.unshift({
-        thumb: thumbUrl,
-        text: codeNames,
-        date: new Date().toLocaleString("ja-JP")
-      });
-      if (history.length > 10) history = history.slice(0, 10);
-      try {
-        localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
-      } catch(e) {
-        if (history.length > 3) {
-          history = history.slice(0, 3);
-          try { localStorage.setItem(HISTORY_KEY, JSON.stringify(history)); } catch(e2) {}
-        }
-      }
-    } catch(e) {
-      console.warn("saveHistory失敗:", e);
-    }
-  }
-
-  function openHistory() {
-    var history = loadHistory();
-    var list = $("history-list");
-    list.innerHTML = "";
-    if (!history.length) {
-      list.innerHTML = '<div style="text-align:center;color:#c4a8c4;padding:24px">まだ履歴がありません</div>';
-    } else {
-      history.forEach(function(h, i){
-        var item = document.createElement("div");
-        item.className = "history-item";
-        var imgSrc = h.thumb || h.image || h.full || "";
-        item.innerHTML =
-          '<div class="history-date">' + esc(h.date) + '</div>' +
-          '<img src="' + imgSrc + '" class="history-thumb">';
-        item.addEventListener("click", function(){
-          var showSrc = h.thumb || h.image || "";
-          var img = document.createElement("img");
-          img.src = showSrc;
-          img.style.cssText = "max-width:100%;max-height:50vh;object-fit:contain;display:block;border-radius:8px;margin:0 auto;";
-          $("combine-img-wrap").innerHTML = "";
-          $("combine-img-wrap").appendChild(img);
-          $("combine-text").textContent = h.text;
-          // 保存ボタンの画像URLを更新
-          window._combineCurrentImage = showSrc;
-          $("history-overlay").classList.remove("open");
-          $("combine-overlay").classList.add("open");
-        });
-        list.appendChild(item);
-      });
-    }
-    $("history-overlay").classList.add("open");
-    document.body.style.overflow = "hidden";
-    document.body.style.position = "fixed";
-    document.body.style.width = "100%";
   }
 
   function esc(s) { return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
