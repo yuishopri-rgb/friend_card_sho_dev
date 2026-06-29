@@ -434,11 +434,6 @@
           status.style.color = "#e06f6f";
         });
     });
-      document.body.style.overflow = "";
-      document.body.style.position = "";
-      document.body.style.width = "";
-    });
-    });
     $("edit-search").addEventListener("input", function(e){
       searchQ = e.target.value;
       pendingPage = 1; donePage = 1;
