@@ -278,6 +278,61 @@
   $("search").addEventListener("input", function(e){ searchQ = e.target.value; currentPage = 1; render(); });
   $("reload-btn").onclick = function(){ try { localStorage.removeItem(CACHE_KEY); } catch(e){} fetchData(true); };
 
+  // ---- Pull to Refresh（下スワイプで更新） ----
+  (function setupPullToRefresh(){
+    var PULL_THRESHOLD = 80;   // ★ 更新が発動する引っ張り距離(px) ★
+    var MAX_PULL = 120;        // ★ インジケーターの最大移動距離(px) ★
+    var startY = 0;
+    var pulling = false;
+    var pullDistance = 0;
+
+    // インジケーター要素を作成
+    var indicator = document.createElement("div");
+    indicator.className = "ptr-indicator";
+    indicator.innerHTML = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>';
+    document.body.appendChild(indicator);
+
+    document.addEventListener("touchstart", function(e){
+      // ページ最上部にいるときだけ有効
+      if (window.scrollY > 0) { pulling = false; return; }
+      // モーダルが開いていたら無効
+      if ($("overlay").classList.contains("open")) { pulling = false; return; }
+      startY = e.touches[0].clientY;
+      pulling = true;
+      pullDistance = 0;
+    }, { passive: true });
+
+    document.addEventListener("touchmove", function(e){
+      if (!pulling) return;
+      var diff = e.touches[0].clientY - startY;
+      if (diff <= 0) { pullDistance = 0; indicator.style.transform = ""; indicator.classList.remove("visible"); return; }
+      pullDistance = Math.min(diff * 0.5, MAX_PULL);
+      indicator.classList.add("visible");
+      indicator.style.transform = "translateX(-50%) translateY(" + pullDistance + "px) rotate(" + (pullDistance * 3) + "deg)";
+      if (pullDistance >= PULL_THRESHOLD) indicator.classList.add("ready");
+      else indicator.classList.remove("ready");
+    }, { passive: true });
+
+    document.addEventListener("touchend", function(){
+      if (!pulling) return;
+      pulling = false;
+      if (pullDistance >= PULL_THRESHOLD) {
+        indicator.classList.add("loading");
+        indicator.style.transform = "translateX(-50%) translateY(60px)";
+        try { localStorage.removeItem(CACHE_KEY); } catch(e){}
+        fetchData(true);
+        setTimeout(function(){
+          indicator.classList.remove("visible", "ready", "loading");
+          indicator.style.transform = "";
+        }, 800);
+      } else {
+        indicator.classList.remove("visible", "ready");
+        indicator.style.transform = "";
+      }
+      pullDistance = 0;
+    }, { passive: true });
+  })();
+
   // Service Worker
   if ("serviceWorker" in navigator) {
     navigator.serviceWorker.register("/assets/sw.js").catch(function(){});
