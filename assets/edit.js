@@ -529,25 +529,41 @@
       var objUrl = URL.createObjectURL(blob);
       img.onload = function(){
         try {
-          var canvas = document.createElement("canvas");
-          canvas.width = img.naturalWidth; canvas.height = img.naturalHeight;
-          var ctx = canvas.getContext("2d");
-          ctx.drawImage(img, 0, 0);
-          URL.revokeObjectURL(objUrl);
-          var imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          var fullW = img.naturalWidth, fullH = img.naturalHeight;
+
+          // ★ QR検出は縮小画像で行う（フル解像度でgetImageDataすると激重）★
+          var QR_DETECT_MAX = 900; // ★ QR検出用の最大辺サイズ ★
+          var detectScale = Math.min(1, QR_DETECT_MAX / Math.max(fullW, fullH));
+          var dW = Math.round(fullW * detectScale);
+          var dH = Math.round(fullH * detectScale);
+
+          var detectCanvas = document.createElement("canvas");
+          detectCanvas.width = dW; detectCanvas.height = dH;
+          var dctx = detectCanvas.getContext("2d");
+          dctx.drawImage(img, 0, 0, dW, dH);
+          var imageData = dctx.getImageData(0, 0, dW, dH);
           var qr = (typeof jsQR === "function") ? jsQR(imageData.data, imageData.width, imageData.height) : null;
+
+          URL.revokeObjectURL(objUrl);
+
           if (!qr) { resolve(blob); return; }
+
+          // 縮小画像上の座標をフル解像度座標に変換
+          var inv = 1 / detectScale;
           var ys = [qr.location.topLeftCorner.y, qr.location.topRightCorner.y, qr.location.bottomLeftCorner.y, qr.location.bottomRightCorner.y];
-          var qrTop = Math.min.apply(null, ys), qrBottom = Math.max.apply(null, ys);
+          var qrTop = Math.min.apply(null, ys) * inv;
+          var qrBottom = Math.max.apply(null, ys) * inv;
           var qrHeight = qrBottom - qrTop;
           var newTop = Math.max(0, Math.round(qrTop - qrHeight * 2.6));
-          var newBottom = Math.min(canvas.height, Math.round(qrBottom + qrHeight * 0.6));
+          var newBottom = Math.min(fullH, Math.round(qrBottom + qrHeight * 0.6));
           var cropH = newBottom - newTop;
           if (cropH <= 0) { resolve(blob); return; }
+
+          // フル解像度からトリミングのみ行う（リサイズはこの後のprocessImageForUploadで行う）
           var out = document.createElement("canvas");
-          out.width = canvas.width; out.height = cropH;
-          out.getContext("2d").drawImage(canvas, 0, newTop, canvas.width, cropH, 0, 0, canvas.width, cropH);
-          out.toBlob(function(b){ resolve(b || blob); }, "image/webp", 0.92);
+          out.width = fullW; out.height = cropH;
+          out.getContext("2d").drawImage(img, 0, newTop, fullW, cropH, 0, 0, fullW, cropH);
+          out.toBlob(function(b){ resolve(b || blob); }, "image/webp", 0.9);
         } catch (err) { resolve(blob); }
       };
       img.onerror = function(){ URL.revokeObjectURL(objUrl); resolve(blob); };
@@ -585,7 +601,7 @@
         URL.revokeObjectURL(objUrl);
         canvas.toBlob(function(outBlob){
           if (outBlob) resolve(outBlob); else reject(new Error("変換失敗"));
-        }, "image/webp", 0.9);
+        }, "image/webp", 0.8); // ★ WebP品質：0.8。下げるほどファイルサイズが小さくなる ★
       };
       img.onerror = function(){ URL.revokeObjectURL(objUrl); reject(new Error("画像読み込み失敗")); };
       img.src = objUrl;
