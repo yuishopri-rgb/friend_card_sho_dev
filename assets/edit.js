@@ -601,7 +601,7 @@
         URL.revokeObjectURL(objUrl);
         canvas.toBlob(function(outBlob){
           if (outBlob) resolve(outBlob); else reject(new Error("変換失敗"));
-        }, "image/webp", 0.8); // ★ WebP品質：0.8。下げるほどファイルサイズが小さくなる ★
+        }, "image/webp", 0.5); // ★ WebP品質：0.5。下げるほどファイルサイズが小さくなる（0.0〜1.0）★
       };
       img.onerror = function(){ URL.revokeObjectURL(objUrl); reject(new Error("画像読み込み失敗")); };
       img.src = objUrl;
