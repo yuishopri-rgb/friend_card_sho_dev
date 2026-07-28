@@ -26,6 +26,8 @@
     cloudName:    null,
     uploadPreset: null,
     sheetName:    null,
+    r2UploadUrl:    null,
+    r2UploadSecret: null,
   };
   var AUTH_TOKEN_KEY  = "freca_auth_token_" + BOOT.folder;
   var AUTH_DATE_KEY   = "freca_auth_date_"  + BOOT.folder;
@@ -291,6 +293,8 @@
         CONFIG.uploadPreset = data.uploadPreset;
         CONFIG.sheetName    = data.sheetName;
         CONFIG.appName      = data.appName || CONFIG.appName;
+        CONFIG.r2UploadUrl    = data.r2UploadUrl;
+        CONFIG.r2UploadSecret = data.r2UploadSecret;
         document.title = CONFIG.appName;
 
         // サーバーからテーマを適用
@@ -307,8 +311,8 @@
           try { localStorage.setItem(COMMENT_KEY, data.comment || ""); } catch(e) {}
         }
 
-        if (!CONFIG.cloudName || !CONFIG.uploadPreset) {
-          $("full-loading").innerHTML = '<div class="err">Cloudinary設定が未登録です</div>';
+        if (!CONFIG.r2UploadUrl || !CONFIG.r2UploadSecret) {
+          $("full-loading").innerHTML = '<div class="err">アップロード設定が未登録です</div>';
           return;
         }
         if (checkAuthLocal()) enterApp();
@@ -551,20 +555,56 @@
     });
   }
 
-  function uploadToCloudinary(blob, filename) {
-    var fd = new FormData();
-    fd.append("file", blob, filename);
-    fd.append("upload_preset", CONFIG.uploadPreset);
-    fd.append("folder", CONFIG.folder);
-    return fetch("https://api.cloudinary.com/v1_1/" + CONFIG.cloudName + "/image/upload", { method: "POST", body: fd })
-      .then(function(res){
-        if (!res.ok) throw new Error("Cloudinary " + res.status);
-        return res.json();
-      })
-      .then(function(data){
-        if (!data.secure_url) throw new Error("URLなし");
-        return data.secure_url.replace("/upload/", "/upload/c_crop,g_center,h_1800,w_1100,q_auto,f_auto/");
-      });
+  // WebPに変換してサイズを1100x1800にリサイズ（Cloudinaryのc_crop相当）
+  function processImageForUpload(blob) {
+    return new Promise(function(resolve, reject){
+      var img = new Image();
+      var objUrl = URL.createObjectURL(blob);
+      img.onload = function(){
+        var TARGET_W = 1100, TARGET_H = 1800;
+        var srcRatio = img.naturalWidth / img.naturalHeight;
+        var targetRatio = TARGET_W / TARGET_H;
+        var sx, sy, sw, sh;
+        if (srcRatio > targetRatio) {
+          // 横長すぎる → 左右をトリミング
+          sh = img.naturalHeight;
+          sw = sh * targetRatio;
+          sy = 0;
+          sx = (img.naturalWidth - sw) / 2;
+        } else {
+          // 縦長すぎる → 上下をトリミング
+          sw = img.naturalWidth;
+          sh = sw / targetRatio;
+          sx = 0;
+          sy = (img.naturalHeight - sh) / 2;
+        }
+        var canvas = document.createElement("canvas");
+        canvas.width = TARGET_W;
+        canvas.height = TARGET_H;
+        canvas.getContext("2d").drawImage(img, sx, sy, sw, sh, 0, 0, TARGET_W, TARGET_H);
+        URL.revokeObjectURL(objUrl);
+        canvas.toBlob(function(outBlob){
+          if (outBlob) resolve(outBlob); else reject(new Error("変換失敗"));
+        }, "image/webp", 0.9);
+      };
+      img.onerror = function(){ URL.revokeObjectURL(objUrl); reject(new Error("画像読み込み失敗")); };
+      img.src = objUrl;
+    });
+  }
+
+  function uploadToR2(blob, filename) {
+    return processImageForUpload(blob).then(function(processedBlob){
+      var fd = new FormData();
+      fd.append("file", processedBlob, filename);
+      fd.append("folder", CONFIG.folder);
+      fd.append("secret", CONFIG.r2UploadSecret);
+      return fetch(CONFIG.r2UploadUrl, { method: "POST", body: fd })
+        .then(function(res){ return res.json(); })
+        .then(function(data){
+          if (data.status !== "ok" || !data.url) throw new Error(data.message || "アップロード失敗");
+          return data.url;
+        });
+    });
   }
 
   function saveCard(card) {
@@ -643,7 +683,7 @@
       return trimByQR(card.file)
         .then(function(trimmed){
           card.blob = trimmed;
-          return uploadToCloudinary(trimmed, card.file.name);
+          return uploadToR2(trimmed, card.file.name);
         })
         .then(function(url){
           card.url = url; card.status = "done";
