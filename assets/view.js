@@ -179,6 +179,22 @@
   }
 
   // ---- 描画 ----
+  // ---- 画像の遅延読み込み（IntersectionObserver） ----
+  var imgObserver = null;
+  function setupImgObserver() {
+    if (imgObserver || !("IntersectionObserver" in window)) return;
+    imgObserver = new IntersectionObserver(function(entries){
+      entries.forEach(function(entry){
+        if (!entry.isIntersecting) return;
+        var img = entry.target;
+        if (img.dataset.src && !img.src) {
+          img.src = img.dataset.src;
+        }
+        imgObserver.unobserve(img);
+      });
+    }, { rootMargin: "200px" }); // ★ 画面外200px手前から読み込み開始 ★
+  }
+
   function render() {
     var list = getFiltered().slice().reverse();
     var total = Math.max(1, Math.ceil(list.length / PAGE_SIZE));
@@ -186,12 +202,14 @@
     var page = list.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
     if (!page.length) { showState("⚠", "見つかりません"); return; }
 
+    setupImgObserver();
+
     var frag = document.createDocumentFragment();
     page.forEach(function(d){
       var card = document.createElement("div");
       card.className = "card";
       var imgHtml = d.url
-        ? '<img src="' + esc(d.url) + '" alt="' + esc(d.code || "") + '" loading="lazy" decoding="async" onload="this.classList.add(\'loaded\')">'
+        ? '<img data-src="' + esc(d.url) + '" alt="' + esc(d.code || "") + '" decoding="async" onload="this.classList.add(\'loaded\')">'
         : '<div class="no-img">' + HEART_ICO + '</div>';
       card.innerHTML =
         '<div class="card-img">' + imgHtml + '</div>' +
@@ -208,11 +226,11 @@
     g.appendChild(frag);
     renderPag(total);
 
-    if (currentPage < total) {
-      var next = list.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE);
-      next.forEach(function(d){
-        if (d.url) { var im = new Image(); im.src = d.url; }
-      });
+    // 画像を監視対象に登録（IntersectionObserver非対応なら即読み込み）
+    var imgs = g.querySelectorAll("img[data-src]");
+    for (var i = 0; i < imgs.length; i++) {
+      if (imgObserver) imgObserver.observe(imgs[i]);
+      else imgs[i].src = imgs[i].dataset.src;
     }
   }
 
