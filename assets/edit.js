@@ -639,11 +639,34 @@
     });
   }
 
-  function saveCard(card) {
-    return gasPostFire({
+  // ★ GASへの保存は直列キューで処理（並列だとGAS側で競合・失敗しやすいため）★
+  var saveQueue = Promise.resolve();
+
+  function sendSaveRequest(card, retryCount) {
+    return gasPost({
       action: "save", folder: CONFIG.folder,
       url: card.url || "", charaName: card.charaName || "", codeName: card.codeName || "",
+    }).then(function(data){
+      if (!data || data.status !== "ok") throw new Error((data && data.message) || "保存失敗");
+      return data;
+    }).catch(function(err){
+      if (retryCount < 2) {
+        // ★ 保存失敗時は最大2回まで自動リトライ ★
+        return sendSaveRequest(card, retryCount + 1);
+      }
+      console.error("保存に失敗しました（3回試行）:", card.url, err);
+      throw err;
     });
+  }
+
+  function saveCard(card) {
+    saveQueue = saveQueue.then(function(){
+      return sendSaveRequest(card, 0);
+    }, function(){
+      // 前段が失敗していてもキューは継続させる
+      return sendSaveRequest(card, 0);
+    });
+    return saveQueue;
   }
 
   function saveCardWithStatus(card) {
@@ -710,7 +733,7 @@
     });
     updateSections();
 
-    // PARALLEL枚ずつ並列処理
+    // PARALLEL枚ずつ並列処理（R2アップロードは並列、GAS保存は内部で直列キュー化される）
     function processCard(card) {
       return trimByQR(card.file)
         .then(function(trimmed){
@@ -719,7 +742,11 @@
         })
         .then(function(url){
           card.url = url; card.status = "done";
-          return saveCard(card).catch(function(){});
+          return saveCard(card).catch(function(err){
+            // 保存に最終的に失敗した場合はエラー表示にする（黙って消さない）
+            card.status = "error";
+            showToast(card.file.name + " の保存に失敗しました");
+          });
         })
         .catch(function(err){
           card.status = "error";
