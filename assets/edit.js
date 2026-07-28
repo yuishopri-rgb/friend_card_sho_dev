@@ -669,6 +669,28 @@
     return saveQueue;
   }
 
+  // ★ 複数カードを1リクエストでまとめて保存（新規アップロード完了後にまとめて呼ぶ）★
+  function saveCardsBatch(cards, retryCount) {
+    retryCount = retryCount || 0;
+    var payload = cards.map(function(c){
+      return { url: c.url || "", charaName: c.charaName || "", codeName: c.codeName || "" };
+    }).filter(function(c){ return c.url; });
+    if (!payload.length) return Promise.resolve();
+
+    return gasPost({ action: "save_batch", folder: CONFIG.folder, cards: payload })
+      .then(function(data){
+        if (!data || data.status !== "ok") throw new Error((data && data.message) || "バッチ保存失敗");
+        return data;
+      })
+      .catch(function(err){
+        if (retryCount < 2) {
+          return saveCardsBatch(cards, retryCount + 1);
+        }
+        console.error("バッチ保存に失敗しました（3回試行）:", err);
+        throw err;
+      });
+  }
+
   function saveCardWithStatus(card) {
     if (!card.url) return;
     var statusEl = $("save-status-" + card.id);
@@ -733,7 +755,7 @@
     });
     updateSections();
 
-    // PARALLEL枚ずつ並列処理（R2アップロードは並列、GAS保存は内部で直列キュー化される）
+    // R2アップロードはPARALLEL枚ずつ並列処理。GASへの保存は全完了後に1回のバッチリクエストで送る
     function processCard(card) {
       return trimByQR(card.file)
         .then(function(trimmed){
@@ -742,11 +764,6 @@
         })
         .then(function(url){
           card.url = url; card.status = "done";
-          return saveCard(card).catch(function(err){
-            // 保存に最終的に失敗した場合はエラー表示にする（黙って消さない）
-            card.status = "error";
-            showToast(card.file.name + " の保存に失敗しました");
-          });
         })
         .catch(function(err){
           card.status = "error";
@@ -781,6 +798,17 @@
     next();
 
     allDone.then(function(){
+      // 全カードのR2アップロードが終わったら、成功分だけまとめて1回でGASに保存
+      var successCards = cards.filter(function(c){ return c.status === "done" && c.url; });
+      if (successCards.length) {
+        pl.textContent = "データを保存中…";
+        return saveCardsBatch(successCards).catch(function(){
+          successCards.forEach(function(c){ c.status = "error"; });
+          successCards.forEach(function(c){ updateCardBadge(c); updateCardStyle(c); });
+          showToast("一部のカードの保存に失敗しました");
+        });
+      }
+    }).then(function(){
       pw.classList.remove("show");
       var w = $("upload-warn");
       if (w) w.remove();
