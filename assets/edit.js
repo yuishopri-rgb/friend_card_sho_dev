@@ -563,7 +563,7 @@
           var out = document.createElement("canvas");
           out.width = fullW; out.height = cropH;
           out.getContext("2d").drawImage(img, 0, newTop, fullW, cropH, 0, 0, fullW, cropH);
-          out.toBlob(function(b){ resolve(b || blob); }, "image/webp", 0.9);
+          out.toBlob(function(b){ resolve(b || blob); }, "image/jpeg", 0.9);
         } catch (err) { resolve(blob); }
       };
       img.onerror = function(){ URL.revokeObjectURL(objUrl); resolve(blob); };
@@ -601,7 +601,7 @@
         URL.revokeObjectURL(objUrl);
         canvas.toBlob(function(outBlob){
           if (outBlob) resolve(outBlob); else reject(new Error("変換失敗"));
-        }, "image/webp", 0.5); // ★ WebP品質：0.5。下げるほどファイルサイズが小さくなる（0.0〜1.0）★
+        }, "image/jpeg", 0.5); // ★ JPEG品質：0.5。下げるほどファイルサイズが小さくなる（0.0〜1.0）★
       };
       img.onerror = function(){ URL.revokeObjectURL(objUrl); reject(new Error("画像読み込み失敗")); };
       img.src = objUrl;
