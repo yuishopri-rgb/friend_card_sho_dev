@@ -563,7 +563,13 @@
           var out = document.createElement("canvas");
           out.width = fullW; out.height = cropH;
           out.getContext("2d").drawImage(img, 0, newTop, fullW, cropH, 0, 0, fullW, cropH);
-          out.toBlob(function(b){ resolve(b || blob); }, "image/jpeg", 0.9);
+          // 中間ファイルなので品質は高めでOK（最終圧縮はprocessImageForUploadで行う）
+          var midDataUrl = out.toDataURL("image/jpeg", 0.92);
+          var midByteString = atob(midDataUrl.split(",")[1]);
+          var midAb = new ArrayBuffer(midByteString.length);
+          var midIa = new Uint8Array(midAb);
+          for (var mi = 0; mi < midByteString.length; mi++) { midIa[mi] = midByteString.charCodeAt(mi); }
+          resolve(new Blob([midAb], { type: "image/jpeg" }));
         } catch (err) { resolve(blob); }
       };
       img.onerror = function(){ URL.revokeObjectURL(objUrl); resolve(blob); };
@@ -599,9 +605,19 @@
         canvas.height = TARGET_H;
         canvas.getContext("2d").drawImage(img, sx, sy, sw, sh, 0, 0, TARGET_W, TARGET_H);
         URL.revokeObjectURL(objUrl);
-        canvas.toBlob(function(outBlob){
-          if (outBlob) resolve(outBlob); else reject(new Error("変換失敗"));
-        }, "image/jpeg", 0.5); // ★ JPEG品質：0.5。下げるほどファイルサイズが小さくなる（0.0〜1.0）★
+
+        // ★ JPEG品質：0.5。下げるほどファイルサイズが小さくなる（0.0〜1.0）★
+        // iOS Safariのcanvas.toBlobがJPEG指定を無視してPNGを返すことがあるため、
+        // toDataURL経由で明示的にJPEGを取得してからBlob化する
+        var JPEG_QUALITY = 0.5;
+        var dataUrl = canvas.toDataURL("image/jpeg", JPEG_QUALITY);
+        var byteString = atob(dataUrl.split(",")[1]);
+        var mimeString = dataUrl.split(",")[0].split(":")[1].split(";")[0];
+        var ab = new ArrayBuffer(byteString.length);
+        var ia = new Uint8Array(ab);
+        for (var bi = 0; bi < byteString.length; bi++) { ia[bi] = byteString.charCodeAt(bi); }
+        var outBlob = new Blob([ab], { type: mimeString });
+        resolve(outBlob);
       };
       img.onerror = function(){ URL.revokeObjectURL(objUrl); reject(new Error("画像読み込み失敗")); };
       img.src = objUrl;
