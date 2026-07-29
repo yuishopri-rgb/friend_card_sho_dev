@@ -1229,6 +1229,16 @@
     $("combine-exec-btn").disabled = true;
     $("combine-exec-btn").textContent = "生成中…";
 
+    // ★ R2.devの直リンクはCORS非対応なため、Worker経由のURLに変換してから取得する ★
+    var R2_DEV_PREFIX = "https://pub-e9cd116710324eb58b74570dd894bd9b.r2.dev/";
+    var WORKER_IMG_BASE = CONFIG.r2UploadUrl + "/img/";
+    function toCorsableUrl(url) {
+      if (url.indexOf(R2_DEV_PREFIX) === 0) {
+        return WORKER_IMG_BASE + url.slice(R2_DEV_PREFIX.length);
+      }
+      return url; // 既にWorker経由URL、またはCloudinary URLはそのまま
+    }
+
     loadZenMaruFont().then(function(){
       var promises = items.map(function(card){
         return new Promise(function(resolve){
@@ -1236,7 +1246,10 @@
           img.crossOrigin = "anonymous";
           img.onload = function(){ resolve(img); };
           img.onerror = function(){ resolve(null); };
-          img.src = card.url.replace(/\/upload\/[^/]*\//, "/upload/c_fill,g_center,w_1100,h_1800,q_auto,f_png/");
+          var src = card.url.indexOf("/upload/") !== -1
+            ? card.url.replace(/\/upload\/[^/]*\//, "/upload/c_fill,g_center,w_1100,h_1800,q_auto,f_png/")
+            : toCorsableUrl(card.url);
+          img.src = src;
         });
       });
 
