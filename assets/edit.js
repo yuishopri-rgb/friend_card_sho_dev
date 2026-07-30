@@ -103,7 +103,7 @@
     '    <input type="file" id="file-input" accept="image/*" multiple>',
     '    ',
     '    <div class="upload-label">画像を選択</div>',
-    '    <div class="upload-sub">カメラロールから複数選べます</div>',
+    '    <div class="upload-sub">カメラロールから複数選べます（一度に30枚まで）</div>',
     '  </div>',
     '  <div class="progress-wrap" id="progress-wrap">',
     '    <div class="progress-label" id="progress-label">アップロード中… 0 / 0</div>',
@@ -624,18 +624,30 @@
     });
   }
 
-  function uploadToR2(blob, filename) {
+  // ★ R2へのアップロード（失敗時は最大2回リトライ）★
+  function uploadToR2(blob, filename, retryCount) {
+    retryCount = retryCount || 0;
     return processImageForUpload(blob).then(function(processedBlob){
       var fd = new FormData();
       fd.append("file", processedBlob, filename);
       fd.append("folder", CONFIG.folder);
       fd.append("secret", CONFIG.r2UploadSecret);
       return fetch(CONFIG.r2UploadUrl, { method: "POST", body: fd })
-        .then(function(res){ return res.json(); })
+        .then(function(res){
+          if (!res.ok) throw new Error("HTTP " + res.status);
+          return res.json();
+        })
         .then(function(data){
           if (data.status !== "ok" || !data.url) throw new Error(data.message || "アップロード失敗");
           return data.url;
         });
+    }).catch(function(err){
+      if (retryCount < 2) {
+        // 少し待ってからリトライ（サーバー混雑の緩和）
+        return new Promise(function(resolve){ setTimeout(resolve, 800 * (retryCount + 1)); })
+          .then(function(){ return uploadToR2(blob, filename, retryCount + 1); });
+      }
+      throw err;
     });
   }
 
@@ -726,9 +738,16 @@
   function lockPage()   { isUploading = true;  window.addEventListener("beforeunload", onBeforeUnload); }
   function unlockPage() { isUploading = false; window.removeEventListener("beforeunload", onBeforeUnload); }
 
+  var MAX_UPLOAD_AT_ONCE = 30; // ★ 一度にアップロードできる最大枚数 ★
+
   function handleFiles(files) {
     if (!files.length) return;
     if (isUploading) { showToast("アップロード中です。完了をお待ちください"); return; }
+
+    if (files.length > MAX_UPLOAD_AT_ONCE) {
+      showToast("一度にアップロードできるのは" + MAX_UPLOAD_AT_ONCE + "枚までです");
+      files = files.slice(0, MAX_UPLOAD_AT_ONCE);
+    }
 
     var pw = $("progress-wrap"), pb = $("progress-bar"), pl = $("progress-label");
     var warn = document.createElement("div");
@@ -813,7 +832,13 @@
       var w = $("upload-warn");
       if (w) w.remove();
       unlockPage();
-      showToast(total + "枚アップロード完了");
+      // 失敗件数を明示する（黙って消えないように）
+      var failedCount = cards.filter(function(c){ return c.status === "error"; }).length;
+      if (failedCount) {
+        showToast(failedCount + "枚のアップロードに失敗しました（" + (total - failedCount) + "枚成功）");
+      } else {
+        showToast(total + "枚アップロード完了");
+      }
     });
   }
 
