@@ -103,7 +103,7 @@
     '    <input type="file" id="file-input" accept="image/*" multiple>',
     '    ',
     '    <div class="upload-label">画像を選択</div>',
-    '    <div class="upload-sub">カメラロールから複数選べます（一度に30枚まで）</div>',
+    '    <div class="upload-sub">カメラロールから複数選べます</div>',
     '  </div>',
     '  <div class="progress-wrap" id="progress-wrap">',
     '    <div class="progress-label" id="progress-label">アップロード中… 0 / 0</div>',
@@ -682,21 +682,47 @@
   }
 
   // ★ 複数カードを1リクエストでまとめて保存（新規アップロード完了後にまとめて呼ぶ）★
+  // ★ 1回のバッチリクエストで送る最大件数（GASの実行時間制限を避けるため分割）★
+  var BATCH_CHUNK_SIZE = 20;
+
   function saveCardsBatch(cards, retryCount) {
     retryCount = retryCount || 0;
     var payload = cards.map(function(c){
       return { url: c.url || "", charaName: c.charaName || "", codeName: c.codeName || "" };
     }).filter(function(c){ return c.url; });
-    if (!payload.length) return Promise.resolve();
+    if (!payload.length) return Promise.resolve({ savedTotal: 0, expected: 0 });
 
-    return gasPost({ action: "save_batch", folder: CONFIG.folder, cards: payload })
+    // 20件ずつに分割して順番に送る
+    var chunks = [];
+    for (var i = 0; i < payload.length; i += BATCH_CHUNK_SIZE) {
+      chunks.push(payload.slice(i, i + BATCH_CHUNK_SIZE));
+    }
+
+    var savedTotal = 0;
+    var chain = Promise.resolve();
+    chunks.forEach(function(chunk){
+      chain = chain.then(function(){
+        return sendBatchChunk(chunk, 0).then(function(data){
+          savedTotal += (data && data.saved) || 0;
+        });
+      });
+    });
+
+    return chain.then(function(){
+      return { savedTotal: savedTotal, expected: payload.length };
+    });
+  }
+
+  function sendBatchChunk(chunk, retryCount) {
+    return gasPost({ action: "save_batch", folder: CONFIG.folder, cards: chunk })
       .then(function(data){
         if (!data || data.status !== "ok") throw new Error((data && data.message) || "バッチ保存失敗");
         return data;
       })
       .catch(function(err){
         if (retryCount < 2) {
-          return saveCardsBatch(cards, retryCount + 1);
+          return new Promise(function(resolve){ setTimeout(resolve, 800 * (retryCount + 1)); })
+            .then(function(){ return sendBatchChunk(chunk, retryCount + 1); });
         }
         console.error("バッチ保存に失敗しました（3回試行）:", err);
         throw err;
@@ -738,16 +764,9 @@
   function lockPage()   { isUploading = true;  window.addEventListener("beforeunload", onBeforeUnload); }
   function unlockPage() { isUploading = false; window.removeEventListener("beforeunload", onBeforeUnload); }
 
-  var MAX_UPLOAD_AT_ONCE = 30; // ★ 一度にアップロードできる最大枚数 ★
-
   function handleFiles(files) {
     if (!files.length) return;
     if (isUploading) { showToast("アップロード中です。完了をお待ちください"); return; }
-
-    if (files.length > MAX_UPLOAD_AT_ONCE) {
-      showToast("一度にアップロードできるのは" + MAX_UPLOAD_AT_ONCE + "枚までです");
-      files = files.slice(0, MAX_UPLOAD_AT_ONCE);
-    }
 
     var pw = $("progress-wrap"), pb = $("progress-bar"), pl = $("progress-label");
     var warn = document.createElement("div");
@@ -817,25 +836,37 @@
     next();
 
     allDone.then(function(){
-      // 全カードのR2アップロードが終わったら、成功分だけまとめて1回でGASに保存
+      // 全カードのR2アップロードが終わったら、成功分をまとめてGASに保存
       var successCards = cards.filter(function(c){ return c.status === "done" && c.url; });
-      if (successCards.length) {
-        pl.textContent = "データを保存中…";
-        return saveCardsBatch(successCards).catch(function(){
-          successCards.forEach(function(c){ c.status = "error"; });
-          successCards.forEach(function(c){ updateCardBadge(c); updateCardStyle(c); });
-          showToast("一部のカードの保存に失敗しました");
+      if (!successCards.length) return { savedTotal: 0, expected: 0 };
+      pl.textContent = "データを保存中…";
+      return saveCardsBatch(successCards).catch(function(){
+        successCards.forEach(function(c){
+          c.status = "error";
+          updateCardBadge(c); updateCardStyle(c);
         });
-      }
-    }).then(function(){
+        return { savedTotal: 0, expected: successCards.length };
+      });
+    }).then(function(result){
       pw.classList.remove("show");
       var w = $("upload-warn");
       if (w) w.remove();
       unlockPage();
-      // 失敗件数を明示する（黙って消えないように）
-      var failedCount = cards.filter(function(c){ return c.status === "error"; }).length;
-      if (failedCount) {
-        showToast(failedCount + "枚のアップロードに失敗しました（" + (total - failedCount) + "枚成功）");
+
+      // ★ 送った枚数と実際に保存された枚数を照合して結果を明示する ★
+      var uploadFailed = cards.filter(function(c){ return c.status === "error"; }).length;
+      var savedTotal   = (result && result.savedTotal) || 0;
+      var expected     = (result && result.expected) || 0;
+
+      if (uploadFailed > 0 || savedTotal !== expected) {
+        var msg = "選択 " + total + "枚 / 画像アップ成功 " + (total - uploadFailed) + "枚 / 登録 " + savedTotal + "枚";
+        showToast(msg);
+        console.warn("[フレカ] 件数不一致:", {
+          選択: total,
+          画像アップ失敗: uploadFailed,
+          登録予定: expected,
+          実際に登録: savedTotal
+        });
       } else {
         showToast(total + "枚アップロード完了");
       }
